@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.amxd binary
+*.als binary
+*.alp binary
+*.wav binary
+*.mid binary

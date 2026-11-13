@@ -1,0 +1,31 @@
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about="" xmlns:ablFR="https://ns.ableton.com/xmp/fs-resources/1.0/">
+         <!-- A small stand-in for a pack's tag file, in Live's own format, for fake_live.py's Sounds tree. -->
+         <ablFR:items>
+            <rdf:Bag>
+               <rdf:li rdf:parseType="Resource">
+                  <ablFR:filePath>Racks/Instrument Racks/Pad/Warm Analog Pad.adg</ablFR:filePath>
+                  <ablFR:keywords><rdf:Bag><rdf:li>Character|Analog</rdf:li><rdf:li>Sounds|Pad</rdf:li></rdf:Bag></ablFR:keywords>
+               </rdf:li>
+               <rdf:li rdf:parseType="Resource">
+                  <ablFR:filePath>Racks/Instrument Racks/Piano &amp; Keys/E-Piano Rusty.adg</ablFR:filePath>
+                  <ablFR:keywords><rdf:Bag><rdf:li>Character|Lofi &amp; Vinyl</rdf:li><rdf:li>Sounds|Piano &amp; Keys|Electric Piano</rdf:li></rdf:Bag></ablFR:keywords>
+               </rdf:li>
+               <rdf:li rdf:parseType="Resource">
+                  <ablFR:filePath>Racks/Instrument Racks/Bass/808 Drifter.adg</ablFR:filePath>
+                  <ablFR:keywords><rdf:Bag><rdf:li>Character|Punchy</rdf:li><rdf:li>Sounds|Bass|808 Bass</rdf:li></rdf:Bag></ablFR:keywords>
+               </rdf:li>
+               <rdf:li rdf:parseType="Resource">
+                  <ablFR:filePath>Racks/Instrument Racks/MPE/MPE Airy Pad.adg</ablFR:filePath>
+                  <ablFR:keywords><rdf:Bag><rdf:li>Character|Soft</rdf:li><rdf:li>Sounds|Pad</rdf:li><rdf:li>Type|MPE Enabled</rdf:li></rdf:Bag></ablFR:keywords>
+               </rdf:li>
+               <rdf:li rdf:parseType="Resource">
+                  <ablFR:filePath>Samples/One Shots/Kick 808.wav</ablFR:filePath>
+                  <ablFR:keywords><rdf:Bag><rdf:li>Drums|Kick</rdf:li></rdf:Bag></ablFR:keywords>
+               </rdf:li>
+            </rdf:Bag>
+         </ablFR:items>
+      </rdf:Description>
+   </rdf:RDF>
+</x:xmpmeta>
