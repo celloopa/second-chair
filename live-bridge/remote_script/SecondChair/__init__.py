@@ -149,7 +149,7 @@ MAX_VISIT = 30000    # stop a search after this many items
 MAX_LIST = 5000      # most item paths list_tree returns in one answer
 LOAD_TICKS = 30      # ticks (about 100 ms each) to wait for a load to appear
 MAX_PADS = 16
-FIRST_PAD = 36       # C1 in Live's naming; the MPK mini's Bank A pads send 36-43
+FIRST_PAD = 36       # C1 in Live's naming; most pad controllers' first eight pads send 36-43
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 
 
@@ -2933,7 +2933,7 @@ class SecondChair(ControlSurface):
         if clip_info:
             out["from_clip"] = clip_info
         if out.get("mode") == "slice":
-            out["pads"] = "In Slice mode, slice 1 plays on C1 (MIDI 36), the MPK's pad 1, and each next slice one note up."
+            out["pads"] = "In Slice mode, slice 1 plays on C1 (MIDI 36), pad 1 on most pad controllers, and each next slice one note up."
         out["undo_steps"] = 2 + len(plan)
         return out
 
@@ -3512,7 +3512,7 @@ class SecondChair(ControlSurface):
     # and undoes itself if anything else on the Drum Rack changed.
 
     def _pick_pad(self, rack, pad):
-        """pad: 1-16 (the MPK's pads from C1 up), a MIDI note 17-127, a note name ("D1"), or words from the pad's name ("snare")."""
+        """pad: 1-16 (the pads from C1 up), a MIDI note 17-127, a note name ("D1"), or words from the pad's name ("snare")."""
         pads = dict((p.note, p) for p in rack.drum_pads)
         if isinstance(pad, bool):
             raise ValueError("pad must be a pad number, a note or a name")
@@ -3735,7 +3735,7 @@ class SecondChair(ControlSurface):
         self._log("built a drum kit from %s on track %d" % (fpath[-1], int(track)), parts)
         out = {"track": int(track), "track_name": t.name, "folder": "/".join(fpath), "found_in": ftree,
                "pads": pads, "undo_steps": steps,
-               "mpk": "Bank A pads 1-8 send MIDI 36-43, so pad 1 plays sample 1. Arm the track to play it."}
+               "controller": "On most pad controllers the first eight pads send MIDI 36-43, so pad 1 plays sample 1. Arm the track to play it."}
         if skipped:
             out["skipped"] = skipped
             notes.append("only the first %d samples fit on the kit; the rest were skipped" % MAX_PADS)

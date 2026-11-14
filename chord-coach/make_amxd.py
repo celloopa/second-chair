@@ -33,6 +33,9 @@ boxes = [
     box("obj-12", "newobj", [560.0, 325.0, 140.0, 22.0], "udpsend 127.0.0.1 9886", 1, 0),
     box("obj-13", "newobj", [560.0, 95.0, 100.0, 22.0], "udpreceive 9887", 1, 1),
     box("obj-14", "comment", [560.0, 70.0, 260.0, 20.0], "SecondChair: /cc/show and /cc/clear in, /cc/note and /cc/hello out", 1, 0),
+    # Once the device has loaded, the script may use the Live API (to follow Live's key)
+    box("obj-15", "newobj", [240.0, 60.0, 90.0, 22.0], "live.thisdevice", 1, 3),
+    box("obj-16", "comment", [240.0, 40.0, 220.0, 20.0], "loaded: the script reads Live's key", 1, 0),
 ]
 lines = [
     line("obj-1", 0, "obj-2", 0),   # pass-through
@@ -47,6 +50,7 @@ lines = [
     line("obj-10", 0, "obj-5", 0),
     line("obj-5", 1, "obj-12", 0),  # notes and heartbeat to the bridge
     line("obj-13", 0, "obj-5", 0),  # show / clear from the bridge
+    line("obj-15", 0, "obj-5", 0),  # "bang" when the device has loaded
 ]
 
 patcher = {"patcher": {
@@ -67,7 +71,7 @@ patcher = {"patcher": {
     "statusbarvisible": 2,
     "toolbarvisible": 1,
     "devicewidth": W,
-    "description": "Shows the E Dorian interlude chords (or one Claude sends) on the MPK mini IV, guitar and bass, names what you play, and reports it to SecondChair.",
+    "description": "Pick a key and a mode, or follow Live's key. Suggests that mode's chords, shows each on keys, guitar or bass, names what you play, and reports it to Second Chair.",
     "digest": "",
     "tags": "",
     "style": "",

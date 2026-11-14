@@ -121,7 +121,7 @@ Every studio is different, so the user's own details live in their **studio prof
 
 - Code is in the second-chair repo:
   - `live-bridge/` holds the Remote Script, the MCP server and the tests.
-  - `chord-coach/` is the Chord Coach device. Edit it there, then run `node chord-coach\build.ts --install`.
+  - `chord-coach/` is the Chord Coach device. Edit it there, run `node chord-coach/build.ts` (it rebuilds the device and runs its checks), then run the installer with `--chord-coach`.
 - Test without Live: run `python live-bridge\test\fake_live.py 120`, then `node live-bridge\test\mcp_client.ts` (the run takes about a minute). While Live is open, set `SECOND_CHAIR_PORT=19885` in both terminals.
 - Keep bridge action and tool names platform-neutral: a Mac port follows the same contract (`live-bridge/README.md`).
 - Commit or push only when the user asks.
@@ -137,7 +137,7 @@ The Mac runs the same bridge, tools and Chord Coach as the PC, with the same too
   - The token is `~/SecondChair/token`. Pad swaps are saved in `~/SecondChair/pad-swaps.jsonl`.
 - **Install or update:**
   1. Run `mac/install.sh`. It copies the Remote Script and Chord Coach, and keeps the token.
-  2. After a Chord Coach change, run `node chord-coach/build.ts --install`. It finds the Mac folder by itself.
+  2. After a Chord Coach change, run `node chord-coach/build.ts`, then `sh install.sh --chord-coach`.
   3. After a Remote Script change, fully quit and reopen Live.
 - **`live_screenshot`** needs Screen Recording permission for the app that runs second-chair (Claude, Terminal, or another MCP app).
   - If the tool says the permission is missing, ask the user to turn it on in System Settings > Privacy & Security > Screen Recording, then quit and reopen that app.

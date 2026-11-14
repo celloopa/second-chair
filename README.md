@@ -265,7 +265,7 @@ Your agent shows you the text before it posts anything. It helps to include the 
 ## Left out of this beta
 
 - **Voice control.** A voice front end is planned and comes later. For now you type to your agent.
-- **Chord Coach**, a Max for Live device that shows chords on a keyboard. It needs Max for Live and is only installed when you add `--chord-coach`. Two tools (`live_show_on_keys`, `live_what_am_i_playing`) only work with it.
+- **Chord Coach**, a Max for Live device. Pick a key and a mode, or let it follow Live's key. It suggests that mode's chords, shows each one on a keyboard, a guitar or a bass, and names what you play. It needs Max for Live and is only installed when you add `--chord-coach`. Two tools (`live_show_on_keys`, `live_what_am_i_playing`) only work with it.
 - **Other AI apps, proven.** It's built and tested with Claude. The tools speak MCP, so Codex and other MCP apps should work, but we haven't tested any for this beta.
 
 Second Chair is an independent project. Ableton doesn't make or endorse it.

@@ -72,7 +72,7 @@ type Tool = { name: string; description: string; inputSchema: Record<string, unk
 const int = (description: string, extra: Record<string, unknown> = {}) => ({ type: "integer", description, ...extra });
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const NOTE = obj({
-  pitch: int("MIDI pitch 0-127 (60 = C3 in Live's naming; the MPK mini IV's lowest key at its default octave is 48)"),
+  pitch: int("MIDI pitch 0-127 (60 = C3 in Live's naming; a 25-key keyboard's lowest key is usually 48)"),
   start: { type: "number", description: "Start in beats from the clip start (0 = beat 1)" },
   duration: { type: "number", description: "Length in beats" },
   velocity: int("1-127, default 100"),
@@ -212,7 +212,7 @@ function auditionView(a: Audition, extra: Record<string, unknown> = {}) {
     track: a.track,
     shortlist: a.picks.map((x, i) => `${i === a.at ? "▶ " : ""}${i + 1}. ${x.name}${a.maybes.includes(i) ? " (maybe)" : ""}`),
     maybes: a.maybes.map((i) => a.picks[i].name),
-    next: `the user plays it on the MPK. Then: "keep" (stop here), "next", "back", "maybe" (note it and move on), or "go to" a number.`,
+    next: `the user plays it on the keys. Then: "keep" (stop here), "next", "back", "maybe" (note it and move on), or "go to" a number.`,
   };
 }
 async function swapTo(a: Audition, i: number) {
@@ -494,7 +494,7 @@ const tools: Tool[] = [
       if (!a.name && !a.path) throw new Error("Give a device name (like Drum Buss) or a path from live_browse.");
       return bridge("load_device", a, 20);
     } },
-  { name: "live_build_drum_kit", description: "Build a finger-drum kit in one go: put a Drum Rack on an empty MIDI track and load up to 16 samples from one folder onto its pads, in file-name order, starting at C1 (MIDI 36). The MPK mini's Bank A pads send 36-43, so sample 1 plays on pad 1. The folder must be in Places in Live's browser (or the User Library). Optionally sets each pad's volume and puts hi-hats in choke group 1, so an open hat stops when the closed hat plays. Refuses a track that already has an instrument. Undo with live_undo using the undo_steps it reports.",
+  { name: "live_build_drum_kit", description: "Build a finger-drum kit in one go: put a Drum Rack on an empty MIDI track and load up to 16 samples from one folder onto its pads, in file-name order, starting at C1 (MIDI 36). Most pad controllers' first eight pads send 36-43, so sample 1 plays on pad 1. The folder must be in Places in Live's browser (or the User Library). Optionally sets each pad's volume and puts hi-hats in choke group 1, so an open hat stops when the closed hat plays. Refuses a track that already has an instrument. Undo with live_undo using the undo_steps it reports.",
     inputSchema: obj({ track: int("An empty MIDI track, index from 0 (live_create_midi_track makes one)"),
       folder: { type: "string", description: "The sample folder's name or path as Live's browser shows it, e.g. \"Fluffy Kit - finger drums\". A Windows or Mac file path also works: only its last folder names are used" },
       volumes_db: { type: "array", items: { type: "number" }, description: "Optional volume in dB for each pad in order, e.g. [0, -2, -8, -8]. Missing pads stay at 0 dB" },
@@ -527,12 +527,12 @@ const tools: Tool[] = [
       track: int("A MIDI track with no instrument, index from 0"),
       new_track: { type: "boolean", description: "Make a new MIDI track for it instead (named after the sound unless track_name is given; Live may put it after the selected track, and the result says where)" },
       track_name: { type: "string", description: "Name for the new track" },
-      arm: { type: "boolean", description: "Arm the track afterwards so the MPK plays it (default false)" } }, ["path"]),
+      arm: { type: "boolean", description: "Arm the track afterwards so the keyboard plays it (default false)" } }, ["path"]),
     run: async (a) => {
       const out = await loadSound(a);
-      return { ...out, play: a.arm ? "Armed: play the MPK keys to hear it." : `Arm track ${out.track} (live_arm_track) to play it on the MPK.` };
+      return { ...out, play: a.arm ? "Armed: play the keys to hear it." : `Arm track ${out.track} (live_arm_track) to play it on the keys.` };
     } },
-  { name: "live_audition", description: "Try a shortlist of sounds one by one on the same track, so the user can play each on the MPK and decide. step \"start\" finds sounds for a description (like live_find_sound) and loads pick 1 onto an empty MIDI track or a new one (armed by default). Then, as the user says it: \"next\" and \"back\" swap in the neighbouring pick on that track, \"maybe\" notes the current one and moves on, \"go\" jumps to a number, \"keep\" ends with the current sound in place (and lists the maybes), \"status\" shows where it is. It only ever replaces the sound this audition loaded; if the user changed the track's instrument, it stops. Each swap is one live_undo step.",
+  { name: "live_audition", description: "Try a shortlist of sounds one by one on the same track, so the user can play each on their keyboard and decide. step \"start\" finds sounds for a description (like live_find_sound) and loads pick 1 onto an empty MIDI track or a new one (armed by default). Then, as the user says it: \"next\" and \"back\" swap in the neighbouring pick on that track, \"maybe\" notes the current one and moves on, \"go\" jumps to a number, \"keep\" ends with the current sound in place (and lists the maybes), \"status\" shows where it is. It only ever replaces the sound this audition loaded; if the user changed the track's instrument, it stops. Each swap is one live_undo step.",
     inputSchema: obj({ step: { type: "string", enum: ["start", "next", "back", "maybe", "go", "keep", "status"], description: "What the user said" },
       description: { type: "string", description: "For start: what the user wants, e.g. \"a washed-out vocal pad\"" },
       trees: { type: "array", items: { type: "string", enum: SOUND_TREES }, description: "For start: where to look (default [\"sounds\"])" },
@@ -540,7 +540,7 @@ const tools: Tool[] = [
       track: int("For start: an empty MIDI track, index from 0"),
       new_track: { type: "boolean", description: "For start: make a new MIDI track for it" },
       track_name: { type: "string", description: "For start: name for the new track (default \"Audition\")" },
-      arm: { type: "boolean", description: "For start: arm the track so the MPK plays it (default true)" },
+      arm: { type: "boolean", description: "For start: arm the track so the keyboard plays it (default true)" },
       number: int("For go: the pick number, from 1") }, ["step"]),
     run: async (a) => {
       const step = String(a.step);
@@ -594,7 +594,7 @@ const tools: Tool[] = [
       track_name: { type: "string", description: "Name for the new track (default: the file's name)" },
       file: { type: "string", description: "Full path, or the file's name or words from it" },
       from_clip: obj({ track: int("The audio clip's track"), slot: int("Its slot") }, ["track", "slot"]),
-      arm: { type: "boolean", description: "Arm the track so the MPK plays it (default true)", default: true },
+      arm: { type: "boolean", description: "Arm the track so the keyboard plays it (default true)", default: true },
       ...SIMPLER_SETTINGS }),
     run: async (a) => {
       const hasTrack = a.track !== undefined && a.track !== null;
@@ -684,7 +684,7 @@ const tools: Tool[] = [
     run: (a) => bridge("delete_track", a) },
   { name: "live_swap_pad_sample", description: "Replace the sample on ONE Drum Rack pad, only when the user asks for that swap. Keeps the pad's Simpler settings, volume and choke group. Refuses empty or layered pads, and undoes itself if any other pad changed. Every swap is saved (the old sample's name and file), so restore: true puts the old sample back later, even after undo is gone. live_undo also takes it back. Find the new sample's path with live_browse first (trees places or samples).",
     inputSchema: obj({ track: int("The track with the Drum Rack, index from 0"),
-      pad: { type: ["string", "integer"], description: "Which pad: 1-16 (the MPK's pads, from C1 up), a note like \"D1\", or words from its sample's name like \"snare\"" },
+      pad: { type: ["string", "integer"], description: "Which pad: 1-16 (the pads, from C1 up), a note like \"D1\", or words from its sample's name like \"snare\"" },
       sample: { type: "string", description: "The new sample's path from live_browse, e.g. \"Samples/Snares/Crunchy Snare.wav\". A Windows or Mac file path also works if its folder is in Places" },
       tree: { type: "string", enum: ["places", "samples", "user_library", "drums"], description: "Where the sample is (default: Places, then the User Library, Samples, Drums)" },
       restore: { type: "boolean", description: "Put back the sample a saved swap replaced, instead of loading a new one" } }, ["track"]),
@@ -706,10 +706,10 @@ const tools: Tool[] = [
     } },
 
   // --- Chord Coach (the Max for Live device): light chords on its keys, read what the user plays ---
-  { name: "live_show_on_keys", description: "Light a chord on Chord Coach's keyboard in Live (the Max for Live device on a MIDI track), so the user sees where to put their fingers on the MPK mini. Give a chord symbol (\"Dm7\", \"A13\", \"B7b9\", \"G/B\", \"F sharp minor\"), or chord tones, or exact MIDI notes. Chords are voiced for the MPK's 25 keys (MIDI 48-72) with Spur's voicing. clear: true goes back to the device's own chord. Changes only the display, never the set.",
+  { name: "live_show_on_keys", description: "Light a chord on Chord Coach's keyboard in Live (the Max for Live device on a MIDI track), so the user sees where to put their fingers on a 25-key keyboard. Give a chord symbol (\"Dm7\", \"A13\", \"B7b9\", \"G/B\", \"F sharp minor\"), or chord tones, or exact MIDI notes. Chords are voiced for 25 keys (MIDI 48-72) with Spur's voicing. clear: true goes back to the device's own chord. Changes only the display, never the set.",
     inputSchema: obj({ chord: { type: "string", description: "Chord symbol, e.g. Dm7, A13, Cmaj9, B7b9, G/B" },
       tones: { type: "array", items: { type: ["string", "integer"] }, description: "Chord tones, root first (note names or pitch classes)" },
-      notes: { type: "array", items: { type: "integer" }, description: "Exact MIDI notes to light (48-72 are the MPK's keys)" },
+      notes: { type: "array", items: { type: "integer" }, description: "Exact MIDI notes to light (48-72 are a 25-key keyboard's keys)" },
       label: { type: "string", description: "Text shown on the device (defaults to the chord's name)" },
       clear: { type: "boolean", description: "Clear the shown chord" } }),
     run: async (a) => {
@@ -725,7 +725,7 @@ const tools: Tool[] = [
       const out = await bridge("show_on_keys", { notes, label: a.label ?? label }) as Record<string, unknown>;
       return withDeviceHint({ ...out, note_names: notes.map(noteName) });
     } },
-  { name: "live_what_am_i_playing", description: "What the user is playing right now on the MPK mini, from Chord Coach in Live: the held notes, the chord's name read against the key (Live's Scale setting, or root/scale given here), the last few chords (the trail) and a short timeline of recent notes. Released notes ring for 1.2 s, so an arpeggio still reads as a chord.",
+  { name: "live_what_am_i_playing", description: "What the user is playing right now on their keyboard, from Chord Coach in Live: the held notes, the chord's name read against the key (Live's Scale setting, or root/scale given here), the last few chords (the trail) and a short timeline of recent notes. Released notes ring for 1.2 s, so an arpeggio still reads as a chord.",
     inputSchema: obj({ root: { type: ["string", "integer"], description: "Key root (optional; defaults to Live's song scale when Scale is on)" },
       scale: { type: "string", enum: SCALE_IDS, description: "Scale for the key (default major when root is given)" } }),
     run: async (a) => {
@@ -760,12 +760,12 @@ const tools: Tool[] = [
         ...(!now && trail.length ? { last_played: trail.at(-1) } : {}),
         trail_oldest_first: trail,
         recent_midi: recent.summary(p.now),
-        note_naming: "holding, ringing and chord notes use Live's names (MIDI 60 = C3; the MPK's lowest key at its default octave, 48, = C2). recent_midi comes from Spur and names one octave higher (60 = C4).",
+        note_naming: "holding, ringing and chord notes use Live's names (MIDI 60 = C3; a 25-key keyboard's lowest key, 48, = C2). recent_midi comes from Spur and names one octave higher (60 = C4).",
       });
     } },
 
   // --- the studio guide (the second-chair skill), for clients that can't load skills ---
-  { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the MPK and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the second-chair skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
+  { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the gear and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the second-chair skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
     inputSchema: obj({ section: { type: "string", description: "Words from a section title: \"how to work\", \"start\", \"playbooks\", \"which tool\", \"safety\", \"facts\", \"fixes\", \"heyclicky\", \"working on the tools\", \"mac\", \"my studio\"" },
       playbook: { type: "string", enum: ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording"], description: "Step-by-step best practices for one kind of job; read it before the first write of that kind" } }),
     run: (a) => ({ mcpContent: [{ type: "text", text: personalize(studioGuide(a.section ? String(a.section) : undefined, a.playbook ? String(a.playbook) : undefined)) }] }) },
@@ -806,7 +806,7 @@ const tools: Tool[] = [
     } },
 
   // --- theory: computed locally, no Live needed ---
-  { name: "theory_key", description: `Everything about a key: its notes, the chords that fit (with roman numerals), common progressions, and which of the MPK mini's 25 keys are in it. Scales: ${SCALE_IDS.join(", ")}.`,
+  { name: "theory_key", description: `Everything about a key: its notes, the chords that fit (with roman numerals), common progressions, and which of a 25-key keyboard's keys are in it. Scales: ${SCALE_IDS.join(", ")}.`,
     inputSchema: obj({ root: { type: ["string", "integer"], description: "Root note, e.g. E or F#" }, scale: { type: "string", enum: SCALE_IDS } }, ["root", "scale"]),
     run: (a) => {
       const c = keyCard(rootPc(a.root), scaleId(a.scale));
@@ -814,18 +814,18 @@ const tools: Tool[] = [
         key: c.title, notes: c.notes, chords_from: c.chordsFrom,
         chords: c.chords.map((x) => ({ roman: x.roman, name: x.name, notes: x.notes })),
         progressions: c.progressions.map((p) => ({ name: p.name, feel: p.feel, chords: p.chords.map((x) => x.name) })),
-        mpk_keys_in_scale: c.keyboard.map((k, i) => (k.inScale ? `${i}:${k.name}${k.root ? "(root)" : ""}` : null)).filter(Boolean),
+        keys_in_scale: c.keyboard.map((k, i) => (k.inScale ? `${i}:${k.name}${k.root ? "(root)" : ""}` : null)).filter(Boolean),
       };
     } },
   { name: "theory_name_chord", description: "Name the chord in a set of MIDI notes and read it against a key: roman numeral, in the key or borrowed, and what usually comes next.",
     inputSchema: obj({ notes: { type: "array", items: { type: "integer" }, description: "MIDI note numbers" },
       root: { type: ["string", "integer"], description: "Key root" }, scale: { type: "string", enum: SCALE_IDS } }, ["notes", "root", "scale"]),
     run: (a) => nameChord(a.notes as number[], rootPc(a.root), scaleId(a.scale)) },
-  { name: "theory_voice_chord", description: "Lay a chord out for the MPK mini's 25 keys (root low, tones stacked above) and give MIDI notes to write into a clip, with the root doubled an octave down.",
+  { name: "theory_voice_chord", description: "Lay a chord out for a 25-key keyboard (root low, tones stacked above) and give MIDI notes to write into a clip, with the root doubled an octave down.",
     inputSchema: obj({ tones: { type: "array", items: { type: ["string", "integer"] }, description: "Chord tones, root first, as note names (E, G, B, D, F#) or pitch classes" } }, ["tones"]),
     run: (a) => {
       const pcs = (a.tones as unknown[]).map(rootPc);
-      return { mpk_offsets_from_low_C: voicing(pcs), midi: chordMidi(pcs) };
+      return { offsets_from_low_C: voicing(pcs), midi: chordMidi(pcs) };
     } },
 ];
 

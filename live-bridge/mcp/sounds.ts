@@ -239,7 +239,7 @@ export function rankSounds(description: string, items: Candidate[], idx: TagInde
     if (!score) continue;
     // A described kind of sound ("pad") that this item isn't counts against it, so a "warm bass" isn't a warm pad.
     if (!soundHit && concepts.some((c) => c.kind === "sound")) score *= 0.4;
-    if (!wantsMpe && (tags.includes("MPE") || /^mpe\b/i.test(name))) { score -= 1; why.push("made for MPE controllers; the MPK plays it without the extra expression"); }
+    if (!wantsMpe && (tags.includes("MPE") || /^mpe\b/i.test(name))) { score -= 1; why.push("made for MPE controllers; a standard keyboard plays it without the extra expression"); }
     const ext = (it.path.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase();
     const kind = ext === "adg" ? "rack (an instrument with its own effects and macro knobs)" : ext === "adv" ? "preset for one Live instrument" : ext || "item";
     scored.push({ pick: 0, name, path: it.path, tree: it.tree, folder: folders.join(" > ") || "(top)", kind, tags: tags.filter((t) => t !== "MPE"),

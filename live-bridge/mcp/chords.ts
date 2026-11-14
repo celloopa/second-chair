@@ -1,5 +1,5 @@
 // Chord logic shared by the second-chair MCP server and Chord Coach's build step.
-// Built on Spur's theory.ts (naming, key readings) and voicing.ts (laying a chord on the MPK's 25 keys).
+// Built on Spur's theory.ts (naming, key readings) and voicing.ts (laying a chord on 25 keys).
 // No Node imports, so it can be bundled or tested anywhere.
 
 import { identifyChord, readChord, keyCard, nextChords, parseRoot, SHARPS, type Heard, type ScaleId } from "../vendor/spur/theory.ts";
@@ -138,7 +138,7 @@ export function parseChordSymbol(input: string): { root: number; pcs: number[]; 
 
 // ---------- voicing for the 25 keys (Spur's voicing.ts, with fallbacks so the root stays on the keyboard) ----------
 
-/** MIDI notes on the MPK mini's 25 keys (48-72) for pitch classes, root first. Uses Spur's voicing():
+/** MIDI notes on a 25-key keyboard (48-72) for pitch classes, root first. Uses Spur's voicing():
  *  first the tones as given (stacked thirds), then without the 5th, then in close position, so wide chords
  *  with a high root (A13) keep their root and fit, the way a player would leave out the 5th. */
 export function keysFor(pcs: number[], bass: number | null = null): number[] {

@@ -1,6 +1,6 @@
 // From Spur (celloopa/spotter, branch claude/spur, Mac working tree), sent by the Spur lead 2026-11-07 with the author's OK.
 // The Key card's music theory: computed, never asked of a model. A key and scale in; the notes, how to spell them,
-// the chords that fit, and where they sit on his MPK mini (25 keys), a guitar and a bass (standard tuning).
+// the chords that fit, and where they sit on a 25-key keyboard, a guitar and a bass (standard tuning).
 
 export const SCALES = {
   major: { label: "Major", steps: [0, 2, 4, 5, 7, 9, 11], parent: 0 },

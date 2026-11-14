@@ -73,8 +73,8 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
   - `live_swap_pad_sample` replaces the sample on one Drum Rack pad, on the track named. Name the pad by number (1-16), by note ("C#1"), or by a word from its sample's name ("snare").
   - It keeps the pad's volume and choke group. It refuses empty and layered pads, and undoes itself if any other pad changed.
   - Every swap is saved first, in `~/SecondChair/pad-swaps.jsonl`, so `restore: true` puts the old sample back, even after `live_undo` can't. `live_undo` also works.
-- **Chord Coach** (needs the device on a MIDI track, and the track armed so it hears the MPK):
-  - `live_show_on_keys`: lights a chord on the device's keys. Takes a symbol (`Dm7`, `A13`, `G/B`, `F sharp minor`), tones, or MIDI notes. Chords are voiced for the MPK's 25 keys (48-72) with Spur's `voicing.ts`. `clear: true` goes back to the device's own chord.
+- **Chord Coach** (needs the device on a MIDI track, and the track armed so it hears the keyboard):
+  - `live_show_on_keys`: lights a chord on the device's keys. Takes a symbol (`Dm7`, `A13`, `G/B`, `F sharp minor`), tones, or MIDI notes. Chords are voiced for the keyboard's 25 keys (48-72) with Spur's `voicing.ts`. `clear: true` goes back to the device's own chord.
   - `live_what_am_i_playing`: the held notes, the chord's name read against the key (Live's Scale, or `root`/`scale`), the chord trail and a recent-notes timeline from Spur's `recent-playing.ts`.
 - **Seeing Live:**
   - `live_screenshot`: a picture of Live's window, returned as an image, so Claude can see what the user sees. `windows: "all"` adds open plugin and device windows.
@@ -85,7 +85,7 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
   - `studio_guide` returns the second-chair skill (`.claude/skills/second-chair/SKILL.md` at the repo root): how to work with the user, which tool fits which request, the safety rules, the studio facts and fixes. `section` narrows it.
   - Claude Code sessions in this repo load the same file as a skill. HeyClicky can't load skills, so it reads the guide through this tool. Edit the skill file; there's no second copy.
 - **Theory** (works without Live):
-  - `theory_key`: notes, chords, progressions and the in-scale MPK keys.
+  - `theory_key`: notes, chords, progressions and the in-scale keys.
   - `theory_name_chord`: also reads 9ths, 13ths, 7♭9, 6ths and add9 with the bass as the root.
   - `theory_voice_chord`
 
@@ -158,7 +158,7 @@ Shared with the Mac port. This is a deliberate change to the safety rules, agree
 
 - **`swap_pad_sample`** `{track, pad, sample, tree?}` → `{track, track_name, pad, note, note_name, was: {sample, file}, now: {sample, file, path, from}, kept, undo_steps, notes?}`.
   - `pad` can be:
-    - a number 1-16 (pads from C1 = MIDI 36 up, as the MPK's Bank A sends them);
+    - a number 1-16 (pads from C1 = MIDI 36 up, as the keyboard's Bank A sends them);
     - a MIDI note 17-127;
     - a note name ("C#1");
     - words from the pad's name ("snare"). It refuses when more than one pad matches.
@@ -423,9 +423,9 @@ Shared with the Mac port. Asked for by the user on 2026-11-10 while building the
   - Notes let go together (a block chord) stop ringing when the next note starts.
   - A chord joins the trail after 300 ms.
   - The last chord lingers for 8 s.
-- **Octave:** the device follows the MPK's octave buttons. A note above or below the drawn keys moves them by whole octaves, and the − and + buttons set the octave by hand. Right after an octave change, notes may sit an octave off until you play a key outside the old range, or tap − or +.
+- **Octave:** the device follows the keyboard's octave buttons. A note above or below the drawn keys moves them by whole octaves, and the − and + buttons set the octave by hand. Right after an octave change, notes may sit an octave off until you play a key outside the old range, or tap − or +.
 - **One device at a time:** only one Chord Coach can listen on 9887.
-- **Building the device:** run `node chord-coach\build.ts --install` after editing `chord-coach\chordcoach.js` or `chords.ts`. It writes the computed voicings and a chord-name table into the jsui (Max's jsui can't run TypeScript), rebuilds the `.amxd`, and copies both into the User Library. Then reload the device in Live.
+- **Building the device:** run `node chord-coach/build.ts`, then the installer with `--chord-coach`, after editing `chord-coach\chordcoach.js` or `chords.ts`. It writes the computed voicings and a chord-name table into the jsui (Max's jsui can't run TypeScript), rebuilds the `.amxd`, and copies both into the User Library. Then reload the device in Live.
 - **New tools in an old session:** a session that loaded an older server can try them with `node test\try_tool.ts live_show_on_keys "{\"chord\":\"Dm7\"}"`.
 
 ## Test
@@ -441,6 +441,6 @@ node test\mcp_client.ts       # in another, within 15 s (stops if it finds real 
 
 ## Next steps
 
-- **Steps 2 and 3:** done and verified in real Live on 2026-11-07. Dm7 lit on the device, a held C was named "C", and the octave follows the MPK.
+- **Steps 2 and 3:** done and verified in real Live on 2026-11-07. Dm7 lit on the device, a held C was named "C", and the octave follows the keyboard.
 - **Step 4:** a skill holding the user's setup.
 - **Step 5:** test HeyClicky's push-to-talk.
