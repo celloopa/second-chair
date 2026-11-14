@@ -229,7 +229,7 @@ Tools: `live_revert`, `live_undo`.
 
 ## 13. Your studio profile and the guide
 
-- **Your profile** is one text file, `CelloBridge/my-studio.md` in your home folder: your name, how you like to be taught, gear, folders, plugins, and fixes for your machine. Say "update my studio profile: I got a new interface" and Claude rewrites it and keeps the previous version.
+- **Your profile** is one text file, `SecondChair/my-studio.md` in your home folder: your name, how you like to be taught, gear, folders, plugins, and fixes for your machine. Say "update my studio profile: I got a new interface" and Claude rewrites it and keeps the previous version.
 - **The guide** teaches Claude how to help: which tool fits which request, the safety rules, and six playbooks (starting a session, sound design, mixing, mastering, arrangement, recording).
 
 Tools: `my_studio`, `studio_guide`.

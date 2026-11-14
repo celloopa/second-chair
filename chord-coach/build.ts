@@ -1,4 +1,4 @@
-// Builds Chord Coach: computes its data from the same TypeScript the cello-live MCP server uses, writes it into
+// Builds Chord Coach: computes its data from the same TypeScript the second-chair MCP server uses, writes it into
 // chordcoach.js (between the GENERATED markers), rebuilds Chord Coach.amxd, and with --install copies both into
 // Live's User Library. Max's jsui runs old-style JavaScript, so it gets plain data, not the TypeScript itself.
 //

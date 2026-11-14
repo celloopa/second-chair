@@ -1,5 +1,5 @@
-// cello-live: an MCP server (stdio) that lets Claude and HeyClicky work in Ableton Live through the
-// CelloBridge Remote Script, plus music-theory tools computed locally from Spur's theory and voicing code.
+// second-chair: an MCP server (stdio) that lets Claude and HeyClicky work in Ableton Live through the
+// SecondChair Remote Script, plus music-theory tools computed locally from Spur's theory and voicing code.
 // No dependencies: run with Node 24+ as `node server.ts`.
 
 import net from "node:net";
@@ -23,14 +23,14 @@ import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingC
 const VERSION = "0.9.8";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
-const PORT = Number(process.env.CELLO_BRIDGE_PORT || 9885);
+const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
 // Where install.ps1 (Windows) and mac/install.sh put the token. Apps like HeyClicky start this server with a bare
 // environment (no APPDATA), so don't rely on one variable: try each place, as the Remote Script does.
 const TOKEN_PATHS = [...new Set([
-  process.env.APPDATA && path.join(process.env.APPDATA, "CelloBridge", "token"),
-  path.join(os.homedir(), "AppData", "Roaming", "CelloBridge", "token"),
-  path.join(os.homedir(), "CelloBridge", "token"),
-  process.env.HOME && path.join(process.env.HOME, "CelloBridge", "token"),
+  process.env.APPDATA && path.join(process.env.APPDATA, "SecondChair", "token"),
+  path.join(os.homedir(), "AppData", "Roaming", "SecondChair", "token"),
+  path.join(os.homedir(), "SecondChair", "token"),
+  process.env.HOME && path.join(process.env.HOME, "SecondChair", "token"),
 ].filter((p): p is string => Boolean(p)))];
 
 // ---------- bridge client ----------
@@ -61,7 +61,7 @@ function bridge(action: string, params: Record<string, unknown> = {}, waitSecond
     });
     sock.on("error", (e: NodeJS.ErrnoException) => done(() => reject(new Error(
       e.code === "ECONNREFUSED"
-        ? "Can't reach Live. Open Ableton Live and pick CelloBridge as a Control Surface (Settings > Link, Tempo & MIDI)."
+        ? "Can't reach Live. Open Ableton Live and pick SecondChair as a Control Surface (Settings > Link, Tempo & MIDI)."
         : `Bridge connection failed: ${e.message}`))));
   });
 }
@@ -116,9 +116,9 @@ async function catalog(tree: string, refresh: boolean) {
   return entry;
 }
 
-// The music-studio skill (.claude/skills/music-studio/SKILL.md in this repo) is the studio guide. Claude Code loads it as
+// The second-chair skill (.claude/skills/second-chair/SKILL.md in this repo) is the studio guide. Claude Code loads it as
 // a skill; other MCP clients (HeyClicky) get the same file from the studio_guide tool, so there is one source.
-const GUIDE_PATH = path.join(import.meta.dirname, "..", "..", ".claude", "skills", "music-studio", "SKILL.md");
+const GUIDE_PATH = path.join(import.meta.dirname, "..", "..", ".claude", "skills", "second-chair", "SKILL.md");
 const PLAYBOOKS = ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording"];
 function studioGuide(section?: string, playbook?: string): string {
   if (playbook) {
@@ -194,7 +194,7 @@ async function loadSound(a: Record<string, unknown>) {
 // The state is saved to a file, so a restarted server (or HeyClicky) can carry on. The bridge only replaces the
 // track's instrument when it still has the name this audition loaded, so it never swaps out a sound the user chose.
 type Audition = { description: string; track: number; picks: Pick[]; at: number; instrument: string; maybes: number[]; started: string };
-const AUDITION_FILE = () => path.join(process.env.CELLO_STATE_DIR || path.join(os.homedir(), "CelloBridge"), "audition.json");
+const AUDITION_FILE = () => path.join(process.env.SECOND_CHAIR_STATE_DIR || path.join(os.homedir(), "SecondChair"), "audition.json");
 function readAudition(): Audition | null {
   try { return JSON.parse(fs.readFileSync(AUDITION_FILE(), "utf8")); } catch { return null; }
 }
@@ -225,8 +225,8 @@ async function swapTo(a: Audition, i: number) {
 }
 
 // ---------- pad swaps: saved, so a swapped-out sample can always be put back ----------
-// One JSON line per swap in ~/CelloBridge/pad-swaps.jsonl (CELLO_STATE_DIR changes the folder; the tests use it).
-const SWAP_LOG = () => path.join(process.env.CELLO_STATE_DIR || path.join(os.homedir(), "CelloBridge"), "pad-swaps.jsonl");
+// One JSON line per swap in ~/SecondChair/pad-swaps.jsonl (SECOND_CHAIR_STATE_DIR changes the folder; the tests use it).
+const SWAP_LOG = () => path.join(process.env.SECOND_CHAIR_STATE_DIR || path.join(os.homedir(), "SecondChair"), "pad-swaps.jsonl");
 type SwapEntry = { at: string; track: number; track_name: string; note: number; note_name: string;
   was: { sample: string; file: string }; now: { sample: string; file: string; path: string }; restore_of?: string };
 function readSwaps(): SwapEntry[] {
@@ -763,8 +763,8 @@ const tools: Tool[] = [
       });
     } },
 
-  // --- the studio guide (the music-studio skill), for clients that can't load skills ---
-  { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the MPK and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the music-studio skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
+  // --- the studio guide (the second-chair skill), for clients that can't load skills ---
+  { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the MPK and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the second-chair skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
     inputSchema: obj({ section: { type: "string", description: "Words from a section title: \"how to work\", \"start\", \"playbooks\", \"which tool\", \"safety\", \"facts\", \"fixes\", \"heyclicky\", \"working on the tools\", \"mac\", \"my studio\"" },
       playbook: { type: "string", enum: ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording"], description: "Step-by-step best practices for one kind of job; read it before the first write of that kind" } }),
     run: (a) => ({ mcpContent: [{ type: "text", text: personalize(studioGuide(a.section ? String(a.section) : undefined, a.playbook ? String(a.playbook) : undefined)) }] }) },
@@ -831,8 +831,8 @@ async function handle(msg: any, send: Send) {
       return send({ jsonrpc: "2.0", id, result: {
         protocolVersion: SUPPORTED.includes(want) ? want : SUPPORTED[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "cello-live", version: VERSION },
-        instructions: personalize("Controls the user's Ableton Live 12 set through the CelloBridge Remote Script. Call live_status first; if its set has a warning (an empty Untitled set), tell the user and ask before changing anything. Tracks, slots and scenes are numbered from 0. Writes never overwrite clips. To take back a change these tools made, use live_revert (it only touches the bridge's own changes); live_undo is Live's global undo and can take back the user's edits. theory_* tools work without Live. Read the user's studio profile with my_studio once per session: it says who they are and what's in their studio. For how to work with them, read studio_guide (unless you have the music-studio skill). \"Show me <chord> (on the keys)\" means live_show_on_keys: it only lights Chord Coach's display, so call it straight away and don't write a clip. \"What am I playing\" means live_what_am_i_playing. To see Live (\"look at my set\", \"what's on screen\"), use live_screenshot. For a sound by description (\"a warm pad\"), call live_find_sound, show the user the numbered shortlist, and load their pick with live_load_sound; to try picks one by one on the keys, use live_audition. Change routing or sidechains (live_set_routing) only when the user asks. To chop a sample, live_load_sample puts an audio file or clip into Simpler (mode slice puts the slices on the pads). Delete a track (live_delete_track) only when the user asks for that track to go. Replace a pad's sample (live_swap_pad_sample) only when the user asks for that swap. Only write clips or change tempo, scale or tracks when the user asks for that, or while the user has switched on demo mode (see studio_guide). If a tool says Live or the token can't be reached, tell the user in one line; don't search the disk for installers."),
+        serverInfo: { name: "second-chair", version: VERSION },
+        instructions: personalize("Controls the user's Ableton Live 12 set through the SecondChair Remote Script. Call live_status first; if its set has a warning (an empty Untitled set), tell the user and ask before changing anything. Tracks, slots and scenes are numbered from 0. Writes never overwrite clips. To take back a change these tools made, use live_revert (it only touches the bridge's own changes); live_undo is Live's global undo and can take back the user's edits. theory_* tools work without Live. Read the user's studio profile with my_studio once per session: it says who they are and what's in their studio. For how to work with them, read studio_guide (unless you have the second-chair skill). \"Show me <chord> (on the keys)\" means live_show_on_keys: it only lights Chord Coach's display, so call it straight away and don't write a clip. \"What am I playing\" means live_what_am_i_playing. To see Live (\"look at my set\", \"what's on screen\"), use live_screenshot. For a sound by description (\"a warm pad\"), call live_find_sound, show the user the numbered shortlist, and load their pick with live_load_sound; to try picks one by one on the keys, use live_audition. Change routing or sidechains (live_set_routing) only when the user asks. To chop a sample, live_load_sample puts an audio file or clip into Simpler (mode slice puts the slices on the pads). Delete a track (live_delete_track) only when the user asks for that track to go. Replace a pad's sample (live_swap_pad_sample) only when the user asks for that swap. Only write clips or change tempo, scale or tracks when the user asks for that, or while the user has switched on demo mode (see studio_guide). If a tool says Live or the token can't be reached, tell the user in one line; don't search the disk for installers."),
       } });
     }
     if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });
@@ -863,10 +863,10 @@ async function handle(msg: any, send: Send) {
 // HTTP door (MCP "Streamable HTTP", JSON answers only), for apps that can't start a local command, or whose runner
 // for local commands fails (HeyClicky 1.1.5 on Windows). Start it with:  node server.ts --http [port]
 // Safety: it listens on 127.0.0.1 only, every request needs the bridge token ("Authorization: Bearer <token>" or
-// "X-the user-Token"), and requests sent by a web page (an Origin that isn't this computer) are refused.
+// "X-SecondChair-Token"), and requests sent by a web page (an Origin that isn't this computer) are refused.
 const httpAt = process.argv.indexOf("--http");
-if (httpAt >= 0 || process.env.CELLO_HTTP_PORT) {
-  const port = Number((httpAt >= 0 && /^\d+$/.test(process.argv[httpAt + 1] ?? "") ? process.argv[httpAt + 1] : process.env.CELLO_HTTP_PORT) || 9887);
+if (httpAt >= 0 || process.env.SECOND_CHAIR_HTTP_PORT) {
+  const port = Number((httpAt >= 0 && /^\d+$/.test(process.argv[httpAt + 1] ?? "") ? process.argv[httpAt + 1] : process.env.SECOND_CHAIR_HTTP_PORT) || 9887);
   const local = (h: string) => /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(h);
   const server = http.createServer((req, res) => {
     const reply = (code: number, body?: unknown) => {
@@ -877,7 +877,7 @@ if (httpAt >= 0 || process.env.CELLO_HTTP_PORT) {
     if (!local(String(req.headers.host ?? "")) || (origin && !local(origin.replace(/^https?:\/\//i, "")))) return reply(403, { error: "this door only opens from this computer" });
     let token: string;
     try { token = readToken(); } catch (e) { return reply(500, { error: (e as Error).message }); }
-    const given = String(req.headers["x-cello-token"] ?? "") || String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    const given = String(req.headers["x-secondchair-token"] ?? "") || String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     if (given.length !== token.length || !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token))) return reply(401, { error: "send the bridge token as 'Authorization: Bearer <token>'" });
     if (req.method === "DELETE") return reply(200, {});
     if (req.method !== "POST") return reply(405, { error: "POST JSON-RPC messages here" });
@@ -894,7 +894,7 @@ if (httpAt >= 0 || process.env.CELLO_HTTP_PORT) {
       reply(200, Array.isArray(msg) ? answers : answers[0]);
     });
   });
-  server.listen(port, "127.0.0.1", () => console.error(`cello-live ${VERSION}: MCP over HTTP at http://127.0.0.1:${port}/mcp (this computer only; needs the bridge token)`));
+  server.listen(port, "127.0.0.1", () => console.error(`second-chair ${VERSION}: MCP over HTTP at http://127.0.0.1:${port}/mcp (this computer only; needs the bridge token)`));
 } else {
   const send: Send = (msg) => process.stdout.write(JSON.stringify(msg) + "\n");
   let pending = "";

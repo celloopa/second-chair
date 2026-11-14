@@ -1,7 +1,7 @@
 // Which Live set is open, read from Live's window title (Live's script API doesn't give the set's name).
 // Windows: "being-dumb* - Ableton Live 12 Suite" (the * means unsaved changes). A new set is "Untitled".
 // Mac: the window name, read through System Events (needs Accessibility permission; a guess until checked on the Mac).
-// CELLO_LIVE_TITLE overrides the title, for tests.
+// SECOND_CHAIR_LIVE_TITLE overrides the title, for tests.
 import { execFile } from "node:child_process";
 
 export type OpenSet = { name: string; unsaved: boolean; untitled: boolean; warning?: string } | { unknown: string };
@@ -12,7 +12,7 @@ function run(cmd: string, args: string[]): Promise<string> {
 }
 
 async function liveTitle(): Promise<string> {
-  if (process.env.CELLO_LIVE_TITLE !== undefined) return process.env.CELLO_LIVE_TITLE;
+  if (process.env.SECOND_CHAIR_LIVE_TITLE !== undefined) return process.env.SECOND_CHAIR_LIVE_TITLE;
   if (process.platform === "win32") {
     return (await run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
       "(Get-Process | Where-Object { $_.ProcessName -like 'Ableton Live*' -and $_.MainWindowTitle } | Select-Object -First 1).MainWindowTitle"])).trim();

@@ -1,4 +1,4 @@
-// From Spur (celloopa/spotter, Mac working tree, not in git yet), sent by the Spur lead 2026-11-07 with Cello's OK.
+// From Spur (celloopa/spotter, Mac working tree, not in git yet), sent by the Spur lead 2026-11-07 with the author's OK.
 /** Short-lived, local evidence of played MIDI notes. No model, audio inference, or persistence. */
 export type PlayedMidiEvent = {
   type: "on" | "off";

@@ -1,6 +1,6 @@
 // Finds an audio file for live_load_sample by name, in the user's sample folders.
 // Live's Splice integration saves downloads to User Library\Samples\Splice; the user's own samples are in Documents\Samples.
-// CELLO_SAMPLE_DIRS (folders split by ; on Windows or : on the Mac) replaces the list.
+// SECOND_CHAIR_SAMPLE_DIRS (folders split by ; on Windows or : on the Mac) replaces the list.
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -10,7 +10,7 @@ const MAX_DEPTH = 5;
 const MAX_ENTRIES = 30000;
 
 export function sampleDirs(): string[] {
-  const env = process.env.CELLO_SAMPLE_DIRS;
+  const env = process.env.SECOND_CHAIR_SAMPLE_DIRS;
   if (env !== undefined) return env.split(path.delimiter).filter(Boolean);
   const music = path.join(os.homedir(), "Music", "Ableton");
   return [path.join(music, "User Library", "User Library", "Samples"), path.join(music, "User Library", "Samples"),

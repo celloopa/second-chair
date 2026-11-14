@@ -1,12 +1,12 @@
 # live-bridge
 
-This lets Claude (and HeyClicky, or any MCP client) work inside Cello's Ableton Live 12 on the Windows PC.
+This lets Claude (and HeyClicky, or any MCP client) work inside Ableton Live 12, on Windows or a Mac.
 
 | Piece | Where | What it does |
 |---|---|---|
-| CelloBridge Remote Script | `remote_script/CelloBridge/`, installed to `Music\Ableton\User Library\User Library\Remote Scripts\CelloBridge` | Runs inside Live. Listens on 127.0.0.1:9885 only and needs the token in `%APPDATA%\CelloBridge\token`. Runs a fixed list of actions and never code a client sends. |
-| cello-live MCP server | `mcp/server.ts` (Node 24, no dependencies) | Turns the bridge into tools, plus music-theory tools built on Spur's `theory.ts` and `voicing.ts`. |
-| Spur code | `vendor/spur/` | `theory.ts`, `voicing.ts` and `recent-playing.ts`, sent by the Spur lead with Cello's OK. `STRIP-NOTES.md` covers the HUD ideas for step 2. |
+| SecondChair Remote Script | `remote_script/SecondChair/`, installed to `Music\Ableton\User Library\User Library\Remote Scripts\SecondChair` | Runs inside Live. Listens on 127.0.0.1:9885 only and needs the token in `%APPDATA%\SecondChair\token`. Runs a fixed list of actions and never code a client sends. |
+| second-chair MCP server | `mcp/server.ts` (Node 24, no dependencies) | Turns the bridge into tools, plus music-theory tools built on Spur's `theory.ts` and `voicing.ts`. |
+| Spur code | `vendor/spur/` | `theory.ts`, `voicing.ts` and `recent-playing.ts`, sent by the Spur lead with the author's OK. `STRIP-NOTES.md` covers the HUD ideas for step 2. |
 | Tests | `test/` | `fake_live.py` runs the real Remote Script against a stand-in for Live's API. `mcp_client.ts` drives the MCP server end to end. |
 
 ## Set up (once)
@@ -14,16 +14,16 @@ This lets Claude (and HeyClicky, or any MCP client) work inside Cello's Ableton 
 Run the installer at the top of the repo. The top-level `README.md` has the full steps for a new user.
 
 1. Windows: `powershell -ExecutionPolicy Bypass -File install.ps1`. Mac: `sh install.sh`. Both run `install.mjs` (Node 24, no dependencies). Rerunning is safe. `--check` reports the setup and changes nothing; `--dry-run` says what it would do; `--uninstall` takes it out.
-   - It reads Live's User Library from Live's own `Library.cfg` (the newest Live version's `ProjectPath` + `ProjectName`; the file is in `Live x.y.z/Preferences` on Windows and directly in `Live x.y.z` on the Mac), or takes `--user-library "<folder>"`. It copies `remote_script/CelloBridge` into `Remote Scripts/CelloBridge`.
-   - It makes or keeps the token: `~/CelloBridge/token`, and on Windows also `%APPDATA%\CelloBridge\token` and a copy next to the script.
-   - It adds `cello-live` to Claude Code (`~/.claude.json`) and to the Claude desktop app (`claude_desktop_config.json`, classic and Store installs), with a backup of each file.
-   - It copies the skill to `~/.claude/skills/music-studio` and writes `dist/music-studio-skill.zip` (the zip is written by the installer itself, with `/` paths).
+   - It reads Live's User Library from Live's own `Library.cfg` (the newest Live version's `ProjectPath` + `ProjectName`; the file is in `Live x.y.z/Preferences` on Windows and directly in `Live x.y.z` on the Mac), or takes `--user-library "<folder>"`. It copies `remote_script/SecondChair` into `Remote Scripts/SecondChair`.
+   - It makes or keeps the token: `~/SecondChair/token`, and on Windows also `%APPDATA%\SecondChair\token` and a copy next to the script.
+   - It adds `second-chair` to Claude Code (`~/.claude.json`) and to the Claude desktop app (`claude_desktop_config.json`, classic and Store installs), with a backup of each file.
+   - It copies the skill to `~/.claude/skills/second-chair` and writes `dist/second-chair-skill.zip` (the zip is written by the installer itself, with `/` paths).
    - `--chord-coach` also installs the Chord Coach device. It's off by default: the beta ships without it.
    - `live-bridge/install.ps1` now just calls the top-level installer. `mac/install.sh` is the Mac lead's older script (Remote Script, token and Chord Coach only) and still works.
 2. Restart Live.
-3. Go to Settings > Link, Tempo & MIDI > Control Surface. In an empty row, pick **CelloBridge** and leave Input/Output on None. Live's status bar says "CelloBridge 0.9.8 ready".
+3. Go to Settings > Link, Tempo & MIDI > Control Surface. In an empty row, pick **SecondChair** and leave Input/Output on None. Live's status bar says "SecondChair 0.9.8 ready".
 4. Restart Claude, or start a new session, to load the tools.
-5. Testing the installer: `CELLO_INSTALL_HOME=<an empty folder>` points everything at a pretend home folder.
+5. Testing the installer: `SECOND_CHAIR_INSTALL_HOME=<an empty folder>` points everything at a pretend home folder.
 
 To add it to HeyClicky, go to Settings > Integrations > Custom connectors and add a command:
 `"C:\Program Files\nodejs\node.exe" "<repo>\live-bridge\mcp\server.ts"`
@@ -54,7 +54,7 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
     - as a `percent` of the knob's travel;
     - as Live's raw `value`.
     - Plugins (VST/AU) only show their current setting, so `text` is refused for their knobs (bridge 0.6.0). Use `percent` or `value`.
-- **Routing** (bridge 0.6.0; undoable with `live_undo`; change it only when Cello asks):
+- **Routing** (bridge 0.6.0; undoable with `live_undo`; change it only when the user asks):
   - `live_get_routing` is read-only. With no device it shows the track's input and output and every choice. With a device it shows its sidechain input.
   - `live_set_routing` sets a device's sidechain (`source` = the track, `channel` = the tap point or one Drum Rack chain, like "1 kick"), or a track's `io: "input"` / `"output"`.
 - **Live's browser** (loads devices and samples; undoable with `live_undo`):
@@ -65,31 +65,31 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
     - `choke_hats` is on by default: samples with "hat" in the name go in choke group 1.
     - `name` renames the track.
 - **Sounds by description** (bridge 0.4.0):
-  - `live_find_sound` is read-only. Give it Cello's words ("a warm pad", "a dusty Rhodes", "a punchy 808 bass"). It returns a short numbered list, each with plain reasons: its name, its folder in Live's Sounds, and Live's own tags.
+  - `live_find_sound` is read-only. Give it the user's words ("a warm pad", "a dusty Rhodes", "a punchy 808 bass"). It returns a short numbered list, each with plain reasons: its name, its folder in Live's Sounds, and Live's own tags.
   - `live_load_sound` loads the pick onto a MIDI track that has no instrument, or onto a new MIDI track (`new_track: true`, named after the sound). `arm: true` arms it to play.
-  - It matches words, not audio, so the list is a starting point. Show it to Cello and let them choose.
+  - It matches words, not audio, so the list is a starting point. Show it to the user and let them choose.
   - `live_audition` (0.6.0) steps through a shortlist on one track: `start` loads pick 1, then `next`, `back`, `maybe` (note it and move on), `go` (a number) and `keep`. It replaces only the sound the audition loaded.
-- **Swapping one pad's sample** (bridge 0.5.0, only when Cello asks for that swap):
+- **Swapping one pad's sample** (bridge 0.5.0, only when the user asks for that swap):
   - `live_swap_pad_sample` replaces the sample on one Drum Rack pad, on the track named. Name the pad by number (1-16), by note ("C#1"), or by a word from its sample's name ("snare").
   - It keeps the pad's volume and choke group. It refuses empty and layered pads, and undoes itself if any other pad changed.
-  - Every swap is saved first, in `~/CelloBridge/pad-swaps.jsonl`, so `restore: true` puts the old sample back, even after `live_undo` can't. `live_undo` also works.
+  - Every swap is saved first, in `~/SecondChair/pad-swaps.jsonl`, so `restore: true` puts the old sample back, even after `live_undo` can't. `live_undo` also works.
 - **Chord Coach** (needs the device on a MIDI track, and the track armed so it hears the MPK):
   - `live_show_on_keys`: lights a chord on the device's keys. Takes a symbol (`Dm7`, `A13`, `G/B`, `F sharp minor`), tones, or MIDI notes. Chords are voiced for the MPK's 25 keys (48-72) with Spur's `voicing.ts`. `clear: true` goes back to the device's own chord.
   - `live_what_am_i_playing`: the held notes, the chord's name read against the key (Live's Scale, or `root`/`scale`), the chord trail and a recent-notes timeline from Spur's `recent-playing.ts`.
 - **Seeing Live:**
-  - `live_screenshot`: a picture of Live's window, returned as an image, so Claude can see what Cello sees. `windows: "all"` adds open plugin and device windows.
+  - `live_screenshot`: a picture of Live's window, returned as an image, so Claude can see what the user sees. `windows: "all"` adds open plugin and device windows.
   - It captures only Live's own windows, never the rest of the screen. It works when other windows cover Live, but not when Live is minimised (or, on the Mac, hidden or on another desktop).
   - It runs in the MCP server, because Live's Python can't take screenshots: `mcp/screenshot.ts` with `screenshot.ps1` on Windows, and with `screenshot-mac.js` plus `screencapture -l <window id>` on the Mac.
-  - On the Mac it needs Screen Recording permission for the app that runs cello-live (Claude, HeyClicky or Terminal), in System Settings > Privacy & Security > Screen Recording. Without it, the tool says so.
+  - On the Mac it needs Screen Recording permission for the app that runs second-chair (Claude, HeyClicky or Terminal), in System Settings > Privacy & Security > Screen Recording. Without it, the tool says so.
 - **Studio guide** (works without Live):
-  - `studio_guide` returns the music-studio skill (`.claude/skills/music-studio/SKILL.md` at the repo root): how to work with Cello, which tool fits which request, the safety rules, the studio facts and fixes. `section` narrows it.
+  - `studio_guide` returns the second-chair skill (`.claude/skills/second-chair/SKILL.md` at the repo root): how to work with the user, which tool fits which request, the safety rules, the studio facts and fixes. `section` narrows it.
   - Claude Code sessions in this repo load the same file as a skill. HeyClicky can't load skills, so it reads the guide through this tool. Edit the skill file; there's no second copy.
 - **Theory** (works without Live):
   - `theory_key`: notes, chords, progressions and the in-scale MPK keys.
   - `theory_name_chord`: also reads 9ths, 13ths, 7♭9, 6ths and add9 with the bass as the root.
   - `theory_voice_chord`
 
-Nothing deletes tracks, clips or devices, except `live_revert` taking back something the bridge itself made (and only if nobody changed it since). Two tools replace a sound, both only when Cello asks: `live_swap_pad_sample` (one pad, saved first so it can be put back) and `live_audition` (only the sound the audition itself loaded). Save the set before a big session anyway.
+Nothing deletes tracks, clips or devices, except `live_revert` taking back something the bridge itself made (and only if nobody changed it since). Two tools replace a sound, both only when the user asks: `live_swap_pad_sample` (one pad, saved first so it can be put back) and `live_audition` (only the sound the audition itself loaded). Save the set before a big session anyway.
 
 ## Browser loading (bridge 0.3.0)
 
@@ -103,7 +103,7 @@ This is shared with the Mac port. The action names, parameters and results are t
   - Names match without case or file extension.
 - **`build_drum_kit`** `{track, folder, volumes_db?, choke_hats? = true, name?}` → `{track, track_name, folder, found_in, pads: [{pad, note, note_name, sample, volume?, choke_group?}], undo_steps, skipped?, notes?}`.
   - It looks for `folder` in `places`, then in `user_library`, matching the longest tail of the path.
-  - If the folder isn't there, the error tells Cello how to add it under Places.
+  - If the folder isn't there, the error tells the user how to add it under Places.
 - **`undo`** now takes `steps` (1-40).
 - **`get_device_params`** `{track, device}` → `{track, device, params: [{index, name, value, min, max, shown_as, choices?, locked?}]}`.
   - `device` is a name, an index from 0, or `"mixer"`. The mixer's params are named Volume, Pan and Send A, B and so on.
@@ -139,14 +139,14 @@ Shared with the Mac port, like the browser section above. The bridge only lists 
 - **How `live_find_sound` ranks** (`mcp/sounds.ts`):
   - It reads the description as words. Some words name a kind of sound (pad, Rhodes, 808, bass, keys, pluck, strings, choir, bells). Some say how it sounds (warm, dusty, punchy, dark, bright, evolving). Two-word phrases come first, like "electric piano" and "lo fi". Other words are only looked for in names.
   - Each word maps to Live's folders, Live's tags and name words. For example, "dusty" maps to the tag Lofi & Vinyl and to names with dust, vinyl, old, rusty or tape. "Warm" maps to the tags Analog and Soft, because Live has no Warm tag.
-  - For each word, an item scores for its name (3 for Cello's own word, 2 for a related word), its folder (2.5, or 1 when the folder holds other kinds too, like Piano & Keys), and Live's tags (2.5). Kinds of sound count 1.5 times.
-  - An item that isn't the kind asked for scores much lower. MPE sounds lose a point and are marked, unless Cello says "MPE".
+  - For each word, an item scores for its name (3 for the user's own word, 2 for a related word), its folder (2.5, or 1 when the folder holds other kinds too, like Piano & Keys), and Live's tags (2.5). Kinds of sound count 1.5 times.
+  - An item that isn't the kind asked for scores much lower. MPE sounds lose a point and are marked, unless the user says "MPE".
   - It keeps one item per name, since a `.adg` rack and a `.adv` preset with the same name read as the same choice.
 - **Live's tags:** Live's Python API can't see tags, so the server reads them from the packs' own files, `Ableton Folder Info/*.xmp`. It looks in:
   - Live's Core Library: `C:\ProgramData\Ableton\Live 12 Suite\Resources\Core Library` on Windows, or `Ableton Live 12 Suite.app/Contents/App-Resources/Core Library` on the Mac;
   - each folder in `~/Music/Ableton/Factory Packs`;
   - the User Library.
-  - `CELLO_ABLETON_LIBRARIES` (folders split by `;` on Windows, `:` on the Mac) replaces that list. The tests use it.
+  - `SECOND_CHAIR_ABLETON_LIBRARIES` (folders split by `;` on Windows, `:` on the Mac) replaces that list. The tests use it.
   - Tags match a browser item by file name. When two packs share a file name, the one in the same-named folder wins.
   - Without tag files, it still matches names and folders, and says so.
 - **Caching:** the server keeps each tree's list for 10 minutes and the tags until it restarts. `refresh: true` re-reads both, for example after installing a pack.
@@ -154,7 +154,7 @@ Shared with the Mac port, like the browser section above. The bridge only lists 
 
 ## Swapping one pad's sample (bridge 0.5.0)
 
-Shared with the Mac port. This is a deliberate change to the safety rules, agreed with Cello on 2026-11-08: replacing is fine when Cello asks for it, and the old sound is saved first.
+Shared with the Mac port. This is a deliberate change to the safety rules, agreed with the user on 2026-11-08: replacing is fine when the user asks for it, and the old sound is saved first.
 
 - **`swap_pad_sample`** `{track, pad, sample, tree?}` → `{track, track_name, pad, note, note_name, was: {sample, file}, now: {sample, file, path, from}, kept, undo_steps, notes?}`.
   - `pad` can be:
@@ -168,7 +168,7 @@ Shared with the Mac port. This is a deliberate change to the safety rules, agree
     - **In Live 12.4.16, Live rebuilds the pad instead of swapping inside the Simpler.** The result says `kept: "volume and choke group"` and a note. The bridge puts back the pad's volume and choke group if they changed, but the Simpler's own settings (start, length, envelope) go back to defaults.
     - When Live keeps the Simpler, `kept` says "Simpler settings, volume and choke group".
   - **Guard:** it snapshots every other pad (chains, devices, sample files) before the swap. If any of them changed, or the pad's layout changed, it calls `song.undo()` and refuses.
-- **Saved swaps:** `live_swap_pad_sample` appends each swap to `~/CelloBridge/pad-swaps.jsonl` (track, pad note, old and new sample with file paths). `CELLO_STATE_DIR` moves this file; the tests use a temp folder.
+- **Saved swaps:** `live_swap_pad_sample` appends each swap to `~/SecondChair/pad-swaps.jsonl` (track, pad note, old and new sample with file paths). `SECOND_CHAIR_STATE_DIR` moves this file; the tests use a temp folder.
   - `restore: true` (optionally with `pad`) swaps back to the old file from the newest open swap on that track. It is saved too, so the same swap isn't put back twice.
 - **Possible later:** Live 12.4's `SimplerDevice.replace_sample(file_path)` would keep the Simpler's settings. It takes disk paths, and the browser API gives no disk path for an item. So it would need the contract to carry disk paths, which the Mac port would need to agree first.
 
@@ -176,26 +176,26 @@ Shared with the Mac port. This is a deliberate change to the safety rules, agree
 
 For front ends that can't start a local command, or whose runner for local commands fails (HeyClicky 1.1.5 on Windows). Part of the product direction: the engine serves any front end.
 
-- **Start it:** `node live-bridge/mcp/server.ts --http` (port 9887; `--http 9900` or `CELLO_HTTP_PORT` picks another). Without `--http` the server speaks stdio as before.
+- **Start it:** `node live-bridge/mcp/server.ts --http` (port 9887; `--http 9900` or `SECOND_CHAIR_HTTP_PORT` picks another). Without `--http` the server speaks stdio as before.
 - **Address:** `http://127.0.0.1:9887/mcp`. MCP "Streamable HTTP" with plain JSON answers: POST a JSON-RPC message, get its answer; notifications get 202; GET gets 405 (no event stream).
-- **Safety:** it listens on 127.0.0.1 only. Every request needs the bridge token, as `Authorization: Bearer <token>` or `X-Cello-Token`. A request with a web page's Origin, or a Host that isn't this computer, is refused (403).
+- **Safety:** it listens on 127.0.0.1 only. Every request needs the bridge token, as `Authorization: Bearer <token>` or `X-SecondChair-Token`. A request with a web page's Origin, or a Host that isn't this computer, is refused (403).
 - **Checked:** no token and a wrong token get 401, a web Origin 403, `initialize` / `tools/list` / `tools/call` answer, and the stdio tests still pass. **Not checked:** HeyClicky or Spur connecting to it.
 - Port 9887 is also Chord Coach's number, but that one is UDP and this is TCP, so they don't clash. Keep it in mind when reading a port list.
 - **Checked on the Mac too** (2026-11-12, against the fake Live): the same answers, 56 tools listed.
 - The Remote Script is unchanged apart from the version number; Live doesn't need a restart for this.
 
-## Any user, not just Cello: the studio profile (0.9.8)
+## Any user: the studio profile (0.9.8)
 
-First step towards the beta: the tools and the guide no longer name Cello or hold Cello's details.
+First step towards the beta: the tools and the guide hold no one's name or details. Those live in the studio profile.
 
-- **The studio profile** (`mcp/profile.ts`): one Markdown file per user and machine, at `~/CelloBridge/my-studio.md` (`CELLO_STUDIO_FILE` overrides it). It holds the user's name, how they like to be taught, their controller, interface, instruments, sample folders and plugins, and fixes that are about their machine.
+- **The studio profile** (`mcp/profile.ts`): one Markdown file per user and machine, at `~/SecondChair/my-studio.md` (`SECOND_CHAIR_STUDIO_FILE` overrides it). It holds the user's name, how they like to be taught, their controller, interface, instruments, sample folders and plugins, and fixes that are about their machine.
 - **`my_studio`** `{text?}`: reads the profile. With none, it returns the questions to ask. With `text`, it saves the profile and keeps the previous one as `my-studio.previous.md`. Works without Live.
 - **Names:** tool descriptions, the server instructions, the guide and refusals are written for "the user". When the profile has a `- **Name:** ...` line, the server swaps that name in as it sends them (`personalize`). Names are letters, spaces, `-` and `'`, at most 30 characters.
 - **`live_status`** adds `studio_profile` ("yes (name)" or "none yet: call my_studio").
 - **`studio_guide`** ends with a "My studio" section holding the profile; `section: "my studio"` returns just that.
-- **The guide** (`SKILL.md` and the playbooks) keeps what's true for everyone. Cello's own details moved out of the repo, into one profile file per machine; each machine copies its one to `~/CelloBridge/my-studio.md`.
+- **The guide** (`SKILL.md` and the playbooks) keeps what's true for everyone. The user's own details moved out of the repo, into one profile file per machine; each machine copies its one to `~/SecondChair/my-studio.md`.
 - **The Remote Script** only had its messages reworded ("ask the user"). Its actions are unchanged, so `NEEDS_BRIDGE` stays 0.9.6 and an older installed script keeps working.
-- **Still named after Cello:** the product names (CelloBridge, cello-live, the `CELLO_` settings, the `~/CelloBridge` folder), the repo's own `CLAUDE.md`, and Chord Coach's notes. Renaming waits on the product name.
+- **The names** changed on 2026-11-13: the product is Second Chair, the Remote Script is SecondChair, the MCP server is second-chair, the settings start with `SECOND_CHAIR_`, and the home folder is `~/SecondChair`. The installer moves an older install over (`migrate` in `install.mjs`).
 
 ## Real-Live fixes: alignment and bouncing (bridge 0.9.8)
 
@@ -210,7 +210,7 @@ From the beat chat's first real use of 0.9.6 (2026-11-12). These change the Remo
 - **The print started about 80 ms after the bar.** Punching in by hand is up to one display tick late. Now the bounce sets the loop brace to the bars and uses Live's Punch In and Punch Out (`Song.punch_in`, `punch_out`), with Record on from the pre-roll, so the take has exact edges. The brace and punch switches are put back.
 - **Not tested:** the group case has no stand-in in the fake Live.
 
-## Measuring a bounce: loudness and tone (cello-live 0.9.7)
+## Measuring a bounce: loudness and tone (second-chair 0.9.7)
 
 For mastering, where Claude has no ears (the beta's first use, 2026-11-12). MCP server only: the Remote Script stays 0.9.6.
 
@@ -235,7 +235,7 @@ For mastering, where Claude has no ears (the beta's first use, 2026-11-12). MCP 
 
 ## Lining up stacked takes (bridge 0.9.6)
 
-Cello, 2026-11-12: three stacked vocal takes should start their notes together. By hand that's Ctrl+U or dragging warp markers.
+The user, 2026-11-12: three stacked vocal takes should start their notes together. By hand that's Ctrl+U or dragging warp markers.
 
 - **MCP side (`mcp/onsets.ts`):** reads the take's WAV (16/24/32-bit PCM or 32-bit float) and finds note starts: a level jump within 15 ms, then the first sample that reaches a quarter of the local peak. `sensitivity` 0-100. Soft, slurred starts are missed, and a missed start is simply left alone.
 - **`audio_clip_info`** `{clip}`: the clip's file and warp state. A clip is `{track, slot}` (Session) or `{track, bar, name}` (Arrangement).
@@ -245,7 +245,7 @@ Cello, 2026-11-12: three stacked vocal takes should start their notes together. 
 
 ## Buses and return tracks (bridge 0.9.5)
 
-Cello, 2026-11-12, by way of the beat chat: three vocal tracks each had their own Echo and Reverb; "can we get around these limitations?" Live's API can't group tracks (no Ctrl+G), so a bus is built from routing.
+The user, 2026-11-12, by way of the beat chat: three vocal tracks each had their own Echo and Reverb; "can we get around these limitations?" Live's API can't group tracks (no Ctrl+G), so a bus is built from routing.
 
 - **One numbering for every track:** regular tracks, then the return tracks, then Main (`_all_tracks`). `get_session` lists `returns` (with `send`: "Send A"...) and `main` with their numbers. So `load_device`, `get_device_params`, `set_device_param`, `move_device`, `get_levels`, `record_automation` and the rest work on return tracks and Main. `delete_track` and `duplicate_track` refuse them.
 - **`create_audio_track`** `{name?, index?}` and **`create_return_track`** `{name?}` (`Song.create_audio_track`, `Song.create_return_track`). Revertible while empty (`delete_track`, `delete_return_track`).
@@ -257,7 +257,7 @@ Cello, 2026-11-12, by way of the beat chat: three vocal tracks each had their ow
 
 ## Automation shapes, several knobs, plugins (bridge 0.9.4)
 
-Cello, 2026-11-12: use the recording trick for "any sort of automation/modulation", and "any parameter on plugins".
+The user, 2026-11-12: use the recording trick for "any sort of automation/modulation", and "any parameter on plugins".
 
 - **One shape engine** (`_lane`) for `record_automation` and `automate`. Each lane is one knob, with one of these:
   - `start` / `end`: a ramp, with `curve`: `linear`, `ease_in`, `ease_out`, `s` or `step` (hold, then jump).
@@ -276,8 +276,8 @@ Cello, 2026-11-12: use the recording trick for "any sort of automation/modulatio
 - **Read-back check:** each reading is compared with what the take meant to leave there (1 % of the knob's range). Mismatches come back as `read_back_mismatch` with a `warning`; `read_back_ok` is true when all match. Exactly at `from_bar` (after bar 1) the old and new settings meet, so that one reading isn't compared; bar `from_bar + 0.1` is read instead.
 - **Real Live, 0.9.4:** a take from bar 1 still left an old point covering the first tenth of a beat. Live writes a take's first value a moment late, so recording can't reach the very start of the song: delete such a point by hand. The flat-take nudge and `read_knob` worked.
 - **Version check:** `live_status` compares the Remote Script's version with the MCP server's and adds `version_warning` when they differ. On 2026-11-12, Live had started before an install, kept the old script, and every new tool answered "unknown action".
-- **Playbooks:** `.claude/skills/music-studio/playbooks/` (session-start, sound-design, mixing, arrangement, recording). These are the beat chat's lessons from two days of real use as step-by-step rules. `studio_guide` serves them with `playbook`.
-- **`play_range`** `{from_bar, to_bar, melodyne_track?}` (MCP: `live_play_bars`): plays the Arrangement once over the bars and puts the loop and play position back. With `melodyne_track`, it first checks Melodyne is device 0 on that track and the track has clips there. This is for Melodyne's Transfer: Live 12 has no ARA, so Melodyne must hear the part played. The bridge can't press Transfer inside the plugin window; Cello does.
+- **Playbooks:** `.claude/skills/second-chair/playbooks/` (session-start, sound-design, mixing, arrangement, recording). These are the beat chat's lessons from two days of real use as step-by-step rules. `studio_guide` serves them with `playbook`.
+- **`play_range`** `{from_bar, to_bar, melodyne_track?}` (MCP: `live_play_bars`): plays the Arrangement once over the bars and puts the loop and play position back. With `melodyne_track`, it first checks Melodyne is device 0 on that track and the track has clips there. This is for Melodyne's Transfer: Live 12 has no ARA, so Melodyne must hear the part played. The bridge can't press Transfer inside the plugin window; the user does.
 - **`bounce_track`** `{track, from_bar, to_bar, name?, channel?}`: `Song.create_audio_track` right after the source, with input = the source track (`"<n>-<name>"`, channel Post FX by default) and monitoring Off. Other armed tracks are disarmed for the take. It plays from a bar early, punches Arrangement Record in and out, then puts everything back. It prints Melodyne edits and effects, and it's the bridge's way to bounce (Live has no render call for scripts). Not revertible (live_undo).
 - **Not checked in real Live yet:** read-back timing (two ticks after a jump), `version_warning`, `play_range`, `bounce_track` (route names, Monitor Off, the take landing as one clip), Melodyne Transfer with `play_range`.
 - **Can't be done:** Live 12's own modulation (the per-clip modulation envelopes in the Arrangement) has no script access. Macro mappings can't be made from a script either.
@@ -285,12 +285,12 @@ Cello, 2026-11-12: use the recording trick for "any sort of automation/modulatio
 
 ## Recorded automation on the Arrangement (bridge 0.9.3)
 
-Cello's top request on 2026-11-12: volume builds and fades on the timeline. Live gives scripts no way to draw on a track's Arrangement automation lane, and clip envelopes are Session-only (0.9.1). So **`record_automation`** records it, the way a controller knob does:
+The user's top request on 2026-11-12: volume builds and fades on the timeline. Live gives scripts no way to draw on a track's Arrangement automation lane, and clip envelopes are Session-only (0.9.1). So **`record_automation`** records it, the way a controller knob does:
 
 1. It refuses if Live is playing, and saves the state: Arrangement Record, the Arrangement Loop, Automation Arm (`Song.session_automation_record`), Back to Arrangement, the play position, and which tracks are armed.
 2. It disarms armed tracks (so the take records nothing else), turns the loop off and Automation Arm on, sets the knob to the start, and plays from one bar before `from_bar`.
 3. At `from_bar` it punches in (`record_mode = True`) and calls `DeviceParameter.begin_gesture()`. Every tick it sets the knob along a straight line by song time. At `to_bar` it sets the end value, calls `end_gesture()`, and punches out.
-4. It stops and puts everything back, even if the take fails. If Cello stops Live part way, the result says only part was recorded.
+4. It stops and puts everything back, even if the take fails. If the user stops Live part way, the result says only part was recorded.
 
 - It replaces any automation already in those bars. Live plays out loud during the take. At most about 4.5 minutes per call (`MAX_RECORD_SECONDS`).
 - Undo: `live_undo` straight away (Live's own undo). `live_revert` can't take a recording back.
@@ -303,7 +303,7 @@ From the Clams beat chat's issue list (2026-11-12, `side-session-notes/.../clams
 
 - **Racks:** any device argument takes a path, `"808 Rack > chain > Device"`. The chain can be left out when the rack has one. `get_device_params` on a rack lists its chains and their devices. This works for reading and setting knobs, moving, deleting and automating. Uses `RackDevice.chains` and `Chain.devices`.
 - **`move_device`** `{track, device, position | before | after}`: `Song.move_device(device, owner, position)` within the same track or chain. Revertible.
-- **`delete_device`** `{track, device, name}`: only when Cello asks; the name must match. Not revertible with live_revert (live_undo).
+- **`delete_device`** `{track, device, name}`: only when the user asks; the name must match. Not revertible with live_revert (live_undo).
 - **`get_levels`** `{track?, seconds?}`: watches `Track.output_meter_level` / `_left` / `_right` for every track and Main (`Song.master_track`) and reports the peak, 0-1. `about` reads that value on the track's volume fader scale (a guess that Live's meter shares it), plus a word: silent, low, healthy, hot, near the top (guessed bands). For gain staging without reading meter colours.
 - **`copy_clip`** `{track, slot, to_track, to_slot}`: `ClipSlot.duplicate_clip_to` into an empty slot. Revertible.
 - **`move_arrangement_clip`** / **`delete_arrangement_clip`** (MCP: `live_arrangement_clip`): the clip is named by its name and start bar, and both must match. Live has no move for scripts, so a move is `duplicate_clip_to_arrangement` at the new bar, then `Track.delete_clip` on the old one. It never covers clips, and it's revertible. Delete is not revertible with live_revert (live_undo). Trim and split: no script API.
@@ -323,7 +323,7 @@ Found by the Clams beat chat in real Live on 2026-11-12.
 
 ## The Arrangement timeline and automation (bridge 0.9.0)
 
-Asked for by Cello on 2026-11-12 ("everything also fades and timeline operations", "parameter automations"), after the beat chat fell back to computer use while Cello was working in Live.
+Asked for by the user on 2026-11-12 ("everything also fades and timeline operations", "parameter automations"), after the beat chat fell back to computer use while the user was working in Live.
 
 - **`get_arrangement`** `{track?}`: each track's `Track.arrangement_clips` as `start_bar`, `end_bar`, `bars` (bars from 1), the last bar used, and the Arrangement Loop (`Song.loop`, `loop_start`, `loop_length`). The loop matters: on day 1 it made Arrangement Record wrap round and record over earlier bars.
 - **`place_clip`** `{track, slot, bar, bars?, to_track?}`: `Track.duplicate_clip_to_arrangement(clip, time)`, repeated back to back to fill `bars`; the last copy may run past (the result says so). Refuses anywhere a clip already sits (Live itself would cover it). MIDI to MIDI tracks, audio to audio. Revertible (`Track.delete_clip`).
@@ -347,7 +347,7 @@ Found by the Clams beat chat on 2026-11-12: `text: "1/4"` on Echo's "L Synced" s
 
 ## Transport buttons for recording into the Arrangement (bridge 0.8.1)
 
-Asked for by Cello on 2026-11-10: launched Session clips kept playing after Stop, so the next Arrangement take recorded them from bar 1.
+Asked for by the user on 2026-11-10: launched Session clips kept playing after Stop, so the next Arrangement take recorded them from bar 1.
 
 - `stop_all_clips`: Live's `Song.stop_all_clips()` (Stop All Clips; quantized like the button).
 - `back_to_arrangement`: sets `Song.back_to_arranger = False`, which is the Back to Arrangement button.
@@ -358,20 +358,20 @@ Asked for by Cello on 2026-11-10: launched Session clips kept playing after Stop
 
 ## Sample chopping (bridge 0.8.0)
 
-Asked for by Cello on 2026-11-10 while chopping a Splice vocal loop for the Clams beat.
+Asked for by the user on 2026-11-10 while chopping a Splice vocal loop for the Clams beat.
 
-- **Where files come from.** Live's Splice integration saves downloads to `User Library\User Library\Samples\Splice\`. The MCP server's `live_load_sample` takes a full path, or a name or words from it, and looks in the User Library's `Samples` folder and `Documents\Samples` (`mcp/samplefiles.ts`; `CELLO_SAMPLE_DIRS` replaces the list). Or `from_clip` uses an audio clip's own file (`AudioClip.file_path`) and keeps the clip's transpose.
+- **Where files come from.** Live's Splice integration saves downloads to `User Library\User Library\Samples\Splice\`. The MCP server's `live_load_sample` takes a full path, or a name or words from it, and looks in the User Library's `Samples` folder and `Documents\Samples` (`mcp/samplefiles.ts`; `SECOND_CHAIR_SAMPLE_DIRS` replaces the list). Or `from_clip` uses an audio clip's own file (`AudioClip.file_path`) and keeps the clip's transpose.
 - **`load_sample`** `{track, file | from_clip: {track, slot}, mode?, slice_by?, sensitivity?, beat_division?, regions?, warp?, warp_mode?, transpose?, slice_playback?}`: on a MIDI track with no instrument, `Track.insert_device("Simpler")` (Live 12.3+), then `SimplerDevice.replace_sample(path)`, then the settings. Only audio file types, and the file must exist. One change in the revert list (the Simpler); the MCP server adds the new track and the arm and reports `revert_steps`.
 - **`get_simpler` / `set_simpler`**: Live's `SimplerDevice.playback_mode` (classic, one-shot, slice), `slicing_playback_mode` (mono, poly, thru), and on its `Sample`: `slicing_style` (transient, beat, region, manual), `slicing_sensitivity` (0-1; the tool takes 0-100), `slicing_beat_division` (1/16 … 4 bars, a guess at Live's order), `slicing_region_count`, `warping`, `warp_mode`, plus the Transpose knob. Every setting is checked before any is applied. Revertible.
 - **`set_audio_clip`** `{track, slot, transpose?, warp?, warp_mode?}`: an audio clip's `pitch_coarse`, `warping`, `warp_mode`. Revertible.
-- **`delete_track`** `{track, name}`: only when Cello asks for that track to go. The name must match, and a track with clips is refused. Not revertible by `live_revert` (it says to use `live_undo` straight away).
+- **`delete_track`** `{track, name}`: only when the user asks for that track to go. The name must match, and a track with clips is refused. Not revertible by `live_revert` (it says to use `live_undo` straight away).
 - Warp mode numbers: beats 0, tones 1, texture 2, re-pitch 3, complex 4, rex 5, complex pro 6.
 - **Checked in real Live (12.4.16, 2026-11-10):** `get_simpler` reads a Simpler the beat chat set up (slice mode, transient slicing, 30 slices, warp off, -6 st). The 0.7.0 change list fills in real Live (`live_revert` preview lists the beat chat's clip writes, all revertible). The set name reads from the window title.
 - **Not checked in real Live yet:** `replace_sample` from a script, the beat-division order, whether `slices` updates on the next tick, and whether Live inserts Simpler where asked.
 
 ## Taking back the bridge's own changes (bridge 0.7.0)
 
-Asked for by Cello on 2026-11-10: `live_undo` is Live's global undo, so after Cello had edited the set it took back one of Cello's own changes.
+Asked for by the user on 2026-11-10: `live_undo` is Live's global undo, so after the user had edited the set it took back one of the user's own changes.
 
 - Every action that changes the set adds one entry to the bridge's **change list** (in memory, newest last, at most 100; it starts empty when Live starts). An entry is made of parts, and each part can check itself:
   - `left`: still as the bridge left it, so it can be put back;
@@ -382,20 +382,20 @@ Asked for by Cello on 2026-11-10: `live_undo` is Live's global undo, so after Ce
 - **`revert`** `{steps=1, preview=false, skip=false}`:
   - Reverts the newest `steps` entries, newest first, as one job. On a `changed` entry it stops; if that was the first, it's an error and nothing changed.
   - `preview` lists them with `can_revert`, `already_back` and `why_not`.
-  - `skip` drops entries from the list without touching Live, for when Cello wants to keep the change.
+  - `skip` drops entries from the list without touching Live, for when the user wants to keep the change.
 - `arm_track` now also returns `changed`, so the MCP server can count `revert_steps` for `live_load_sound`: the new track, the load, and the arm.
 - Reverting a clip, device or track deletes it. That's the one place the bridge deletes anything, and only things it made itself, unchanged since.
 - **Not checked in real Live yet:** `ClipSlot.delete_clip`, `Track.delete_device`, `Song.delete_track` and `Clip.remove_notes_by_id` from a script, and whether reading a parameter's value after a plugin moves is exact enough to compare.
 
 ## Which set is open, and new track numbers (bridge 0.6.1)
 
-- **`live_status`** now has `set: {name, unsaved, untitled, warning?}`. Live's script API doesn't give the set's name, so the MCP server reads Live's window title (`mcp/liveset.ts`): on Windows "being-dumb* - Ableton Live 12 Suite", where `*` means unsaved changes. A set named "Untitled" gets a `warning`: it's probably an empty set Live opened instead of Cello's song, so ask before changing anything. If the title can't be read, `set` is `{unknown: "..."}`. On the Mac it asks System Events for the window name (a guess until checked there). `CELLO_LIVE_TITLE` overrides the title for tests.
+- **`live_status`** now has `set: {name, unsaved, untitled, warning?}`. Live's script API doesn't give the set's name, so the MCP server reads Live's window title (`mcp/liveset.ts`): on Windows "being-dumb* - Ableton Live 12 Suite", where `*` means unsaved changes. A set named "Untitled" gets a `warning`: it's probably an empty set Live opened instead of the user's song, so ask before changing anything. If the title can't be read, `set` is `{unknown: "..."}`. On the Mac it asks System Events for the window name (a guess until checked there). `SECOND_CHAIR_LIVE_TITLE` overrides the title for tests.
 - **`create_midi_track`** (and `new_track` on the loading tools) now finds the new track by comparing the track list before and after. Real Live puts a track made with index -1 right after the selected track, not at the end, so 0.6.0 and earlier reported the wrong index. The fake does the same once the test sends the fake-only action `fake_after_selected`.
 - **Checked in real Live (0.6.0, 2026-11-10):** track input/output routing reads correctly (Live calls the master "Main"). Kickstart 2 (VST3) has no sidechain the API can reach: `get_routing` refuses it. Plugin sidechains have to be set by hand.
 
 ## Routing, plugin knobs and auditions (bridge 0.6.0)
 
-Shared with the Mac port. Asked for by Cello on 2026-11-10 while building the Clams Casino beat: Kickstart 2 needed its sidechain set to the kick, a plugin knob was set to the wrong end, and trying sounds one by one took a chat round trip each.
+Shared with the Mac port. Asked for by the user on 2026-11-10 while building the Clams Casino beat: Kickstart 2 needed its sidechain set to the kick, a plugin knob was set to the wrong end, and trying sounds one by one took a chat round trip each.
 
 - **`get_routing`** `{track, device?}` → `{track, track_name | device, routes: {<io>: {from, channel, choices, channel_choices}}}`.
   - No device: the track's `input` and `output`, from Live's `available_input_routing_types` / `input_routing_type` / `..._channels` / `input_routing_channel` (and the `output_` ones).
@@ -406,7 +406,7 @@ Shared with the Mac port. Asked for by Cello on 2026-11-10 while building the Cl
   - It sets the source, gives Live a tick to refresh the channel list, then sets the channel. Each is one undo step.
 - **`set_device_param` on plugins:** a plugin's `str_for_value` ignores the value it's given and returns the current display, so a text search ran off one end of the range. Now, when a knob shows the same text at its minimum and maximum, `text` is refused and the error says to use `percent` or `value`. For plugins (`class_name` contains "Plugin"), the action waits 4 ticks and re-reads `now`; if it still shows the old text, a `note` says so.
 - **`load_device`** takes `replace_instrument: "<name>"` (used only by the audition): it hot-swaps the track's instrument for the item, but only if the instrument's name is exactly that. It sets `browser.hotswap_target` to the instrument, loads, waits for the old one to go, clears the target, and undoes the load if anything else on the track changed or Live added instead of replacing. Results now include `instrument`, the track's instrument name after the load.
-- **Audition state** is in `~/CelloBridge/audition.json` (`CELLO_STATE_DIR` moves it): the description, track, picks, position, the loaded instrument's name and the maybes. `keep` deletes it. If Cello swapped the instrument by hand, the name no longer matches and the audition stops instead of replacing it.
+- **Audition state** is in `~/SecondChair/audition.json` (`SECOND_CHAIR_STATE_DIR` moves it): the description, track, picks, position, the loaded instrument's name and the maybes. `keep` deletes it. If the user swapped the instrument by hand, the name no longer matches and the audition stops instead of replacing it.
 - **Not checked in real Live yet:** whether a plugin's sidechain shows up in `audio_inputs`, the exact chooser names for Drum Rack chains, whether routing changes are undoable, and hot-swapping one instrument preset for another.
 
 ## Chord Coach link
@@ -434,12 +434,12 @@ python test\fake_live.py 120   # in one terminal
 node test\mcp_client.ts       # in another, within 15 s (stops if it finds real Live, since it writes to the set)
 ```
 
-- **While Live is open,** it holds port 9885. Set `CELLO_BRIDGE_PORT=19885` in both terminals to run the fake on a spare port.
+- **While Live is open,** it holds port 9885. Set `SECOND_CHAIR_PORT=19885` in both terminals to run the fake on a spare port.
 - The fake always uses spare UDP ports, so it never talks to the real Chord Coach.
 - `mcp_client.ts` checks the browser, sound, pad-swap, plugin-knob, routing and audition tools and exits with 1 if any check fails. The fake has a stand-in VST3 (Kickstart 2, whose knobs only show their current setting a tick late, with a sidechain input), a Compressor with its own sidechain, and track routing. It reads Live's tags from `test/fixtures` (a tiny tag file in Live's format), not from the installed packs.
 
 ## Next steps
 
 - **Steps 2 and 3:** done and verified in real Live on 2026-11-07. Dm7 lit on the device, a held C was named "C", and the octave follows the MPK.
-- **Step 4:** a skill holding Cello's setup.
+- **Step 4:** a skill holding the user's setup.
 - **Step 5:** test HeyClicky's push-to-talk.

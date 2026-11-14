@@ -14,8 +14,8 @@ There are two ways to help:
 
 ## Never include
 
-- **The bridge token,** the contents of any `CelloBridge/token` file, or any `Authorization` or `X-Cello-Token` value.
-- **Personal details from the studio profile** (`~/CelloBridge/my-studio.md`), unless the user says it's OK.
+- **The bridge token,** the contents of any `SecondChair/token` file, or any `Authorization` or `X-SecondChair-Token` value.
+- **Personal details from the studio profile** (`~/SecondChair/my-studio.md`), unless the user says it's OK.
 - **The user's audio or song files** (`.als`, `.wav` and so on), or folder paths that show private names, unless the user says it's OK.
 
 ## Report a problem
@@ -44,12 +44,12 @@ Small, focused fixes are best: one problem per pull request.
 
    | What | Where |
    |---|---|
-   | The script inside Live (Python, runs in Live's own Python) | `live-bridge/remote_script/CelloBridge/__init__.py` |
+   | The script inside Live (Python, runs in Live's own Python) | `live-bridge/remote_script/SecondChair/__init__.py` |
    | The tool server (TypeScript, run directly by Node 24) | `live-bridge/mcp/server.ts` and the other files in `live-bridge/mcp/` |
    | A stand-in for Live, for tests | `live-bridge/test/fake_live.py` |
    | The end-to-end test client | `live-bridge/test/mcp_client.ts` |
    | Tool reference and change notes | `live-bridge/README.md` |
-   | The guide and playbooks | `.claude/skills/music-studio/` |
+   | The guide and playbooks | `.claude/skills/second-chair/` |
 
 3. **Keep these rules.** A pull request that breaks one won't be merged.
    - **No generated audio,** in any form.
@@ -62,7 +62,7 @@ Small, focused fixes are best: one problem per pull request.
 4. **Test it:**
    - Run the fake Live in one terminal: `python3 live-bridge/test/fake_live.py 120` (on Windows, `python`). The number is how many seconds it stays up. The full test takes about a minute.
    - Right away, run the test client in another: `node live-bridge/test/mcp_client.ts`. It must exit with code 0 and print no lines that start with `!!`.
-   - If Live is open, set `CELLO_BRIDGE_PORT=19885` in both terminals so the fake doesn't clash with it.
+   - If Live is open, set `SECOND_CHAIR_PORT=19885` in both terminals so the fake doesn't clash with it.
    - If the fake can show the bug, add a check for it to `mcp_client.ts` (and to `fake_live.py` if the stand-in needs to act more like real Live).
    - **If you changed the Live script and the user agrees,** also try it in real Live on a new empty set, then take it back with `live_revert`. A change to the script needs a full Live restart to load.
 5. **Open the pull request:** `gh pr create --repo celloopa/music-studio-beta --base main`. Fill in `.github/pull_request_template.md`:

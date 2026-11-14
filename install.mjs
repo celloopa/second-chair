@@ -1,4 +1,4 @@
-// The installer for CelloBridge + cello-live, for Windows and Mac. No dependencies: it needs only Node 24.
+// The installer for Second Chair, for Windows and Mac. No dependencies: it needs only Node 24.
 // Start it with install.ps1 (Windows) or install.sh (Mac); both just check for Node and run this file.
 //
 //   node install.mjs                 install or update (safe to run again)
@@ -10,11 +10,11 @@
 //          --no-claude-code, --no-claude-desktop, --no-skill, --chord-coach (also install the Chord Coach device).
 //
 // What it touches, and nothing else:
-//   1. Live's User Library: Remote Scripts/CelloBridge (the script that runs inside Live).
-//   2. ~/CelloBridge: the token (a random password shared by Live and the tools). It is never printed.
-//   3. Claude Code's settings (~/.claude.json) and Claude desktop's (claude_desktop_config.json): one "cello-live" entry.
+//   1. Live's User Library: Remote Scripts/SecondChair (the script that runs inside Live).
+//   2. ~/SecondChair: the token (a random password shared by Live and the tools). It is never printed.
+//   3. Claude Code's settings (~/.claude.json) and Claude desktop's (claude_desktop_config.json): one "second-chair" entry.
 //      Each file is backed up next to itself first.
-//   4. ~/.claude/skills/music-studio: the guide, as a skill. Plus dist/music-studio-skill.zip for uploading by hand.
+//   4. ~/.claude/skills/second-chair: the guide, as a skill. Plus dist/second-chair-skill.zip for uploading by hand.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -39,17 +39,19 @@ const DRY = has("--dry-run");
 const WIN = process.platform === "win32";
 const MAC = process.platform === "darwin";
 const REPO = import.meta.dirname;
-// CELLO_INSTALL_HOME is for the installer's own test: it points everything at a pretend home folder.
-const TEST_HOME = process.env.CELLO_INSTALL_HOME;
+// SECOND_CHAIR_INSTALL_HOME is for the installer's own test: it points everything at a pretend home folder.
+const TEST_HOME = process.env.SECOND_CHAIR_INSTALL_HOME;
 const HOME = TEST_HOME || os.homedir();
 const APPDATA = WIN ? (TEST_HOME ? path.join(HOME, "AppData", "Roaming") : process.env.APPDATA || path.join(HOME, "AppData", "Roaming")) : null;
 const LOCALAPPDATA = WIN ? (TEST_HOME ? path.join(HOME, "AppData", "Local") : process.env.LOCALAPPDATA || path.join(HOME, "AppData", "Local")) : null;
 
-const SCRIPT_SRC = path.join(REPO, "live-bridge", "remote_script", "CelloBridge");
+const SCRIPT_SRC = path.join(REPO, "live-bridge", "remote_script", "SecondChair");
 const SERVER = path.join(REPO, "live-bridge", "mcp", "server.ts");
-const SKILL_SRC = path.join(REPO, ".claude", "skills", "music-studio");
-const SKILL_ZIP = path.join(REPO, "dist", "music-studio-skill.zip");
-const NAME = "cello-live";
+const SKILL_SRC = path.join(REPO, ".claude", "skills", "second-chair");
+const SKILL_ZIP = path.join(REPO, "dist", "second-chair-skill.zip");
+const NAME = "second-chair";
+// Earlier betas used other names. An install over an old one moves the user's files and takes the old parts out.
+const OLD = { script: "CelloBridge", name: "cello-live", home: "CelloBridge", skill: "music-studio" };
 
 // ---- small helpers: every line the user sees says one thing, with a word in front, never a colour ----
 let problems = 0;
@@ -59,7 +61,7 @@ const skip = (t) => console.log(`  [skip]  ${t}`);
 const todo = (t) => { problems++; console.log(`  [TO DO] ${t}`); };
 const head = (t) => console.log(`\n${t}`);
 // Lines are written as things done ("Copied ..."); a dry run turns the verb into a plan ("copy ...").
-const PLAN = { Copied: "copy", Kept: "keep", Made: "make", Removed: "remove", added: "add", updated: "update", "took out": "take out" };
+const PLAN = { Copied: "copy", Kept: "keep", Made: "make", Moved: "move", Removed: "remove", added: "add", updated: "update", "took out": "take out" };
 const would = (t) => console.log(`  [would] ${t.replace(/^(?:(.+?: )(added|updated|took out)|(Copied|Kept|Made|Removed))\b/, (m, label, v, lead) => lead ? PLAN[lead] : label + PLAN[v])}`);
 const exists = (p) => { try { fs.accessSync(p); return true; } catch { return false; } };
 const read = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return null; } };
@@ -113,11 +115,11 @@ function findUserLibrary() {
 }
 
 // ---- 3. the token ----
-const tokenHome = path.join(HOME, "CelloBridge", "token");
+const tokenHome = path.join(HOME, "SecondChair", "token");
 const tokenSpots = (scriptDest) => WIN
-  ? [tokenHome, path.join(APPDATA, "CelloBridge", "token"), ...(scriptDest ? [path.join(scriptDest, "token")] : [])]
+  ? [tokenHome, path.join(APPDATA, "SecondChair", "token"), ...(scriptDest ? [path.join(scriptDest, "token")] : [])]
   : [tokenHome];
-const readToken = (scriptDest) => { for (const p of tokenSpots(scriptDest)) { const t = read(p)?.trim(); if (t) return t; } return null; };
+const readToken = (scriptDest) => { for (const p of [...tokenSpots(scriptDest), path.join(HOME, OLD.home, "token")]) { const t = read(p)?.trim(); if (t) return t; } return null; };
 
 function writeToken(scriptDest) {
   let token = readToken(scriptDest);
@@ -130,6 +132,31 @@ function writeToken(scriptDest) {
       if (!WIN) fs.chmodSync(p, 0o600);
     }
   });
+}
+
+// ---- 3b. an older install under the old names ----
+const oldHome = path.join(HOME, OLD.home), newHome = path.dirname(tokenHome);
+const oldSkill = path.join(HOME, ".claude", "skills", OLD.skill);
+const isOldSkill = () => /^name:\s*music-studio\s*$/m.test(read(path.join(oldSkill, "SKILL.md")) ?? "");
+const oldEntry = (e) => !!e && Array.isArray(e.args) && e.args.some((a) => /live-bridge[\\/]mcp[\\/]server\.ts$/.test(String(a)));
+const oldScript = (lib) => path.join(lib.dir, "Remote Scripts", OLD.script);
+
+// Returns true when it found an older install, so the last lines can say what changes in Live.
+function migrate(lib) {
+  let found = false;
+  if (exists(oldHome)) {
+    found = true;
+    act(`Moved your token and studio profile from ${oldHome} to ${newHome}`, () => {
+      if (!exists(newHome)) return fs.renameSync(oldHome, newHome);
+      for (const e of fs.readdirSync(oldHome)) if (!exists(path.join(newHome, e))) fs.renameSync(path.join(oldHome, e), path.join(newHome, e));
+      fs.rmSync(oldHome, { recursive: true, force: true });
+    });
+  }
+  const script = oldScript(lib);
+  if (exists(script)) { found = true; act(`Removed the older script ${script}`, () => fs.rmSync(script, { recursive: true, force: true })); }
+  if (WIN && exists(path.join(APPDATA, OLD.home))) act(`Removed the older token folder ${path.join(APPDATA, OLD.home)}`, () => fs.rmSync(path.join(APPDATA, OLD.home), { recursive: true, force: true }));
+  if (isOldSkill()) act(`Removed the older skill ${oldSkill}`, () => fs.rmSync(oldSkill, { recursive: true, force: true }));
+  return found;
 }
 
 // ---- 4. Claude ----
@@ -148,6 +175,7 @@ const nodeExe = (() => {
 })();
 // An entry that already starts this same node keeps its own spelling, so a rerun changes nothing.
 const entry = (old) => ({ command: sameNode(old?.command) ? old.command : nodeExe, args: [SERVER] });
+const dropOld = (j) => { if (oldEntry(j.mcpServers?.[OLD.name])) delete j.mcpServers[OLD.name]; };
 const pointsHere = (e) => !!e && Array.isArray(e.args) && e.args.some((a) => path.resolve(String(a)) === SERVER);
 
 function editJson(file, label, change) {
@@ -161,7 +189,7 @@ function editJson(file, label, change) {
   if (JSON.stringify(json) === before) return ok(`${label}: already set up`);
   act(`${label}: ${MODE === "uninstall" ? "took out" : had ? "updated" : "added"} "${NAME}" in ${file}`, () => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    if (text !== null) fs.copyFileSync(file, `${file}.before-cello-live-${stamp()}`);
+    if (text !== null) fs.copyFileSync(file, `${file}.before-second-chair-${stamp()}`);
     fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
   });
 }
@@ -190,24 +218,24 @@ function desktopConfigs() {
 function registerClaude() {
   if (has("--no-claude-code")) skip("Claude Code: you asked me to leave it alone");
   else if (!usesClaudeCode()) skip("Claude Code: not found on this computer (that's fine if you use the Claude desktop app)");
-  else editJson(claudeCodeFile, "Claude Code", (j) => { j.mcpServers ??= {}; j.mcpServers[NAME] = { type: "stdio", ...entry(j.mcpServers[NAME]), env: j.mcpServers[NAME]?.env ?? {} }; });
+  else editJson(claudeCodeFile, "Claude Code", (j) => { j.mcpServers ??= {}; dropOld(j); j.mcpServers[NAME] = { type: "stdio", ...entry(j.mcpServers[NAME]), env: j.mcpServers[NAME]?.env ?? {} }; });
 
   if (has("--no-claude-desktop")) return skip("Claude desktop app: you asked me to leave it alone");
   const files = desktopConfigs();
   if (!files.length) return skip("Claude desktop app: not found on this computer. If you install it later, run this installer again.");
-  for (const f of files) editJson(f, "Claude desktop app", (j) => { j.mcpServers ??= {}; j.mcpServers[NAME] = { ...(j.mcpServers[NAME] ?? {}), ...entry(j.mcpServers[NAME]) }; });
+  for (const f of files) editJson(f, "Claude desktop app", (j) => { j.mcpServers ??= {}; dropOld(j); j.mcpServers[NAME] = { ...(j.mcpServers[NAME] ?? {}), ...entry(j.mcpServers[NAME]) }; });
   // Other agents are a one-line command for the user; this installer only edits Claude's files.
   if (exists(path.join(HOME, ".codex"))) skip(`Codex: I don't edit its settings. To add the tools, run:  codex mcp add ${NAME} -- node "${SERVER}"`);
 }
 
 function unregisterClaude() {
-  const drop = (j) => { if (j.mcpServers && pointsHere(j.mcpServers[NAME])) delete j.mcpServers[NAME]; };
+  const drop = (j) => { if (j.mcpServers && pointsHere(j.mcpServers[NAME])) delete j.mcpServers[NAME]; dropOld(j); };
   if (exists(claudeCodeFile)) editJson(claudeCodeFile, "Claude Code", drop);
   for (const f of desktopConfigs()) if (exists(f)) editJson(f, "Claude desktop app", drop);
 }
 
 // ---- 5. the skill ----
-const skillDest = path.join(HOME, ".claude", "skills", "music-studio");
+const skillDest = path.join(HOME, ".claude", "skills", "second-chair");
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
@@ -220,13 +248,13 @@ function copyDir(src, dest) {
 
 function installSkill() {
   if (has("--no-skill")) return skip("The skill: you asked me to leave it out");
-  if (usesClaudeCode()) act(`Copied the music-studio skill to ${skillDest} (Claude Code loads it by itself)`, () => { fs.rmSync(skillDest, { recursive: true, force: true }); copyDir(SKILL_SRC, skillDest); });
+  if (usesClaudeCode()) act(`Copied the second-chair skill to ${skillDest} (Claude Code loads it by itself)`, () => { fs.rmSync(skillDest, { recursive: true, force: true }); copyDir(SKILL_SRC, skillDest); });
   else skip("The skill for Claude Code: Claude Code isn't on this computer");
   // A zip for the Claude desktop app's chat, where skills are uploaded by hand. The folder must be the zip's top level.
   if (DRY) return would(`make ${SKILL_ZIP} for uploading to the Claude app`);
   try {
     fs.mkdirSync(path.dirname(SKILL_ZIP), { recursive: true });
-    fs.writeFileSync(SKILL_ZIP, zip(SKILL_SRC, "music-studio"));
+    fs.writeFileSync(SKILL_ZIP, zip(SKILL_SRC, "second-chair"));
     done(`Made ${SKILL_ZIP} (upload it in the Claude app: see "B. CLAUDE" below)`);
   } catch (e) {
     skip(`Couldn't make the skill zip (${String(e.message).split("\n")[0]}). You don't need it: the studio_guide tool gives Claude the same guide.`);
@@ -268,7 +296,7 @@ function installChordCoach(lib) {
 
 // ---- is Live answering? ----
 function ping(token, ms = 1500) {
-  const port = Number(process.env.CELLO_BRIDGE_PORT) || 9885;
+  const port = Number(process.env.SECOND_CHAIR_PORT) || 9885;
   return new Promise((resolve) => {
     const sock = net.createConnection({ host: "127.0.0.1", port });
     let buf = "";
@@ -282,7 +310,7 @@ function ping(token, ms = 1500) {
 
 // ---- the three modes ----
 async function install() {
-  console.log(`Installing CelloBridge and cello-live${DRY ? " (dry run: nothing is changed)" : ""}`);
+  console.log(`Installing Second Chair${DRY ? " (dry run: nothing is changed)" : ""}`);
   head("1. This computer");
   checkNode();
   if (!WIN && !MAC) todo("This is neither Windows nor a Mac. Ableton Live doesn't run here, so only the theory tools will work.");
@@ -295,9 +323,10 @@ async function install() {
   if (lib.live && (lib.live.version[0] < 12 || (lib.live.version[0] === 12 && (lib.live.version[1] ?? 0) < 3))) todo(`${lib.live.name} is older than Live 12.3. The tools need 12.3 or newer; some will refuse to work.`);
 
   head("2. Inside Live");
-  const dest = path.join(lib.dir, "Remote Scripts", "CelloBridge");
+  const moved = migrate(lib);
+  const dest = path.join(lib.dir, "Remote Scripts", "SecondChair");
   const was = bridgeVersion(path.join(dest, "__init__.py")), now = bridgeVersion(path.join(SCRIPT_SRC, "__init__.py"));
-  act(`Copied the CelloBridge script ${now} to ${dest}${was && was !== now ? ` (it was ${was})` : ""}`, () => { copyDir(SCRIPT_SRC, dest); fs.rmSync(path.join(dest, "__pycache__"), { recursive: true, force: true }); });
+  act(`Copied the SecondChair script ${now} to ${dest}${was && was !== now ? ` (it was ${was})` : ""}`, () => { copyDir(SCRIPT_SRC, dest); fs.rmSync(path.join(dest, "__pycache__"), { recursive: true, force: true }); });
   writeToken(dest);
   if (has("--chord-coach")) installChordCoach(lib.dir);
 
@@ -310,9 +339,9 @@ async function install() {
   console.log(`
 ${DRY ? "Dry run: nothing was changed. After a real install, these are the steps for you:" : "Done. Three things are left for you:"}
 
-  A. LIVE.  ${running === now ? `Live already runs CelloBridge ${now}. Nothing to do.` : running ? `Live is running the older script (${running}). Quit Live fully and open it again.` : `Quit Live fully if it's open, and open it again. Then:
-       Settings > Link, Tempo & MIDI > Control Surface: in an empty row pick "CelloBridge".
-       Leave its Input and Output on "None". The bar at the bottom of Live says "CelloBridge ${now} ready".`}
+  A. LIVE.  ${running === now ? `Live already runs SecondChair ${now}. Nothing to do.` : running ? `Live is running the older script (${running}). Quit Live fully and open it again.` : `Quit Live fully if it's open, and open it again. Then:
+       Settings > Link, Tempo & MIDI > Control Surface: ${moved ? `the row that said "${OLD.script}" is now empty. Pick "SecondChair" there.` : 'in an empty row pick "SecondChair".'}
+       Leave its Input and Output on "None". The bar at the bottom of Live says "SecondChair ${now} ready".`}
 
   B. CLAUDE.  Quit Claude fully and open it again (on Windows, also from the tray icon near the clock).
        Claude Code, and the Code tab of the desktop app: nothing else. The tools and the skill load by themselves.
@@ -338,28 +367,29 @@ async function check() {
   else ok(`Live's User Library: ${lib.dir} (${lib.how})`);
 
   head("Inside Live");
-  const dest = lib && path.join(lib.dir, "Remote Scripts", "CelloBridge");
+  if (exists(oldHome) || (lib && exists(oldScript(lib)))) todo(`An older install under the name ${OLD.script} is still here. Run the installer: it moves your token and studio profile to ${newHome} and takes the old parts out.`);
+  const dest = lib && path.join(lib.dir, "Remote Scripts", "SecondChair");
   const now = bridgeVersion(path.join(SCRIPT_SRC, "__init__.py"));
   const inst = dest && bridgeVersion(path.join(dest, "__init__.py"));
-  if (!inst) todo("The CelloBridge script isn't in Live's User Library. Run the installer.");
+  if (!inst) todo("The SecondChair script isn't in Live's User Library. Run the installer.");
   else if (inst !== now) todo(`The script in Live's User Library is ${inst}; this folder has ${now}. Run the installer, then restart Live.`);
-  else ok(`The CelloBridge script ${inst} is in Live's User Library`);
+  else ok(`The SecondChair script ${inst} is in Live's User Library`);
   const token = readToken(dest);
   if (!token) todo("No token. Run the installer.");
   else ok("The token exists");
   if (token) {
     const live = await ping(token);
-    if (!live.up) todo('Live isn\'t answering. Is Live open, with "CelloBridge" picked under Settings > Link, Tempo & MIDI > Control Surface?');
+    if (!live.up) todo('Live isn\'t answering. Is Live open, with "SecondChair" picked under Settings > Link, Tempo & MIDI > Control Surface?');
     else if (!live.reply?.ok) todo("Live answered but refused the token. Run the installer, then restart Live.");
-    else if (live.reply.result?.bridge !== now) todo(`Live runs CelloBridge ${live.reply.result?.bridge}, but ${now} is installed. Quit Live fully and open it again.`);
-    else ok(`Live ${live.reply.result.live} is answering, with CelloBridge ${live.reply.result.bridge}`);
+    else if (live.reply.result?.bridge !== now) todo(`Live runs SecondChair ${live.reply.result?.bridge}, but ${now} is installed. Quit Live fully and open it again.`);
+    else ok(`Live ${live.reply.result.live} is answering, with SecondChair ${live.reply.result.bridge}`);
   }
 
   head("In Claude");
   const code = (() => { try { return JSON.parse(read(claudeCodeFile) ?? "{}").mcpServers?.[NAME]; } catch { return null; } })();
   if (!usesClaudeCode()) skip("Claude Code: not on this computer");
   else if (pointsHere(code)) ok("Claude Code starts the tools from this folder");
-  else if (code) todo("Claude Code has a cello-live entry that points at another folder. Run the installer to point it here.");
+  else if (code) todo("Claude Code has a second-chair entry that points at another folder. Run the installer to point it here.");
   else todo("Claude Code doesn't know the tools yet. Run the installer.");
   const desks = desktopConfigs();
   if (!desks.length) skip("Claude desktop app: not on this computer");
@@ -370,11 +400,11 @@ async function check() {
   }
   if (usesClaudeCode()) {
     const mine = read(path.join(skillDest, "SKILL.md")), fresh = read(path.join(SKILL_SRC, "SKILL.md"));
-    if (mine === null) skip("The music-studio skill isn't copied for Claude Code. That's optional: the tools carry the same guide. The installer adds it.");
-    else if (mine !== fresh) todo("The music-studio skill for Claude Code is older than this folder's. Run the installer to refresh it.");
-    else ok("The music-studio skill is installed for Claude Code");
+    if (mine === null) skip("The second-chair skill isn't copied for Claude Code. That's optional: the tools carry the same guide. The installer adds it.");
+    else if (mine !== fresh) todo("The second-chair skill for Claude Code is older than this folder's. Run the installer to refresh it.");
+    else ok("The second-chair skill is installed for Claude Code");
   }
-  const profile = process.env.CELLO_STUDIO_FILE || path.join(HOME, "CelloBridge", "my-studio.md");
+  const profile = process.env.SECOND_CHAIR_STUDIO_FILE || path.join(HOME, "SecondChair", "my-studio.md");
   (exists(profile) ? ok : skip)(exists(profile) ? `Your studio profile: ${profile}` : "No studio profile yet. Claude asks you the questions the first time.");
   console.log(problems ? `\nNOT READY: ${problems} thing(s) to do, marked TO DO above. (Exit code 1.)` : "\nREADY: everything is set up. (Exit code 0.)");
   process.exitCode = problems ? 1 : 0;
@@ -469,17 +499,18 @@ Setup state (what's installed, whether Live answers): run this installer with --
 }
 
 function uninstall() {
-  console.log(`Taking CelloBridge and cello-live out${DRY ? " (dry run: nothing is changed)" : ""}`);
+  console.log(`Taking Second Chair out${DRY ? " (dry run: nothing is changed)" : ""}`);
   const lib = findUserLibrary();
-  const dest = lib && path.join(lib.dir, "Remote Scripts", "CelloBridge");
+  const dest = lib && path.join(lib.dir, "Remote Scripts", "SecondChair");
   if (dest && exists(dest)) act(`Removed ${dest}`, () => fs.rmSync(dest, { recursive: true, force: true }));
   else skip("The script wasn't in Live's User Library");
+  if (lib && exists(oldScript(lib))) act(`Removed the older script ${oldScript(lib)}`, () => fs.rmSync(oldScript(lib), { recursive: true, force: true }));
   unregisterClaude();
   if (exists(path.join(skillDest, "SKILL.md"))) act(`Removed ${skillDest}`, () => fs.rmSync(skillDest, { recursive: true, force: true }));
   for (const p of tokenSpots(null)) if (exists(p)) act(`Removed the token ${p}`, () => fs.rmSync(p, { force: true }));
   console.log(`
-Done. In Live, set the CelloBridge row under Settings > Link, Tempo & MIDI > Control Surface back to "None", then restart Live.
-Your studio profile and notes in ${path.join(HOME, "CelloBridge")} are kept. Delete that folder and this one yourself if you want them gone.`);
+Done. In Live, set the SecondChair row under Settings > Link, Tempo & MIDI > Control Surface back to "None", then restart Live.
+Your studio profile and notes in ${path.join(HOME, "SecondChair")} are kept. Delete that folder and this one yourself if you want them gone.`);
 }
 
 await (MODE === "check" ? check() : MODE === "survey" ? survey() : MODE === "uninstall" ? uninstall() : install());

@@ -1,4 +1,4 @@
-"""Runs the real CelloBridge Remote Script against a stand-in for Live's Python API, so the socket protocol,
+"""Runs the real SecondChair Remote Script against a stand-in for Live's Python API, so the socket protocol,
 token check, main-thread queue and actions can be tested without Ableton. Usage: python fake_live.py [seconds]"""
 import math, os, socket, sys, threading, time, types
 
@@ -47,7 +47,7 @@ class Clip(Enveloped):
 
 # An audio file on disk for the chopping tests, and an audio clip that plays it (on the audio track, slot 7).
 import tempfile
-VOCAL = os.path.join(tempfile.gettempdir(), "cello-fake-vocal_97_A#m.wav")
+VOCAL = os.path.join(tempfile.gettempdir(), "fake-live-vocal_97_A#m.wav")
 open(VOCAL, "wb").write(b"RIFF fake")
 
 class AudioClip(Enveloped):
@@ -211,7 +211,7 @@ class Song:
             self.tracks.insert(self.tracks.index(self.view.selected_track) + 1, t)
         elif index == -1: self.tracks.append(t)
         else: self.tracks.insert(index, t)
-    loop, loop_start, loop_length = True, 0.0, 100.0  # like Cello's set on day 1: the Arrangement Loop on, 25 bars
+    loop, loop_start, loop_length = True, 0.0, 100.0  # like the user's set on day 1: the Arrangement Loop on, 25 bars
     def move_device(self, device, target, position):
         for owner in [t for t in self.tracks] + [c for t in self.tracks for d in t.devices for c in getattr(d, "chains", [])]:
             if device in owner.devices:
@@ -360,7 +360,7 @@ class Device:
             # Real Live 12 (checked 2026-11-10 and 11-12): a VST3's sidechain bus isn't in audio_inputs, so scripts can't reach it.
 
         self.can_have_chains = drum or name == "808 Rack"
-        if name == "808 Rack":  # like Cello's 808: an Instrument Rack with devices inside one chain
+        if name == "808 Rack":  # like the user's 808: an Instrument Rack with devices inside one chain
             self.chains = [Chain("808", [Device("Operator", INSTRUMENT), Device("Saturator", AUDIO_FX), Device("Drum Buss", AUDIO_FX)])]
         if drum:
             self.drum_pads = [DrumPad(n) for n in range(128)]
@@ -524,7 +524,7 @@ def _fake_vocal_stack(self):
     late = [t + 0.03 for t in lead]; late[3] = lead[3] + 0.2
     out = []
     for name, times in (("Lead Vox", lead), ("Stack Vox", late)):
-        path = os.path.join(tempfile.gettempdir(), "cello-fake-%s.wav" % name.replace(" ", "-").lower())
+        path = os.path.join(tempfile.gettempdir(), "fake-live-%s.wav" % name.replace(" ", "-").lower())
         click_wav(path, times)
         t = Track(name, midi=False)
         t.arrangement_clips = [ArrAudio(path, name + " take", 16.0, 4.0)]
@@ -552,25 +552,25 @@ fw = types.ModuleType("_Framework"); csm = types.ModuleType("_Framework.ControlS
 csm.ControlSurface = ControlSurface
 sys.modules["_Framework"] = fw; sys.modules["_Framework.ControlSurface"] = csm
 
-import CelloBridge  # noqa: E402
+import SecondChair  # noqa: E402
 
-# Spare UDP ports, so a test run never talks to the real Chord Coach while Live is open. Set CELLO_BRIDGE_PORT
+# Spare UDP ports, so a test run never talks to the real Chord Coach while Live is open. Set SECOND_CHAIR_PORT
 # (for example 19885) to test while Live itself holds 9885; mcp_client.ts and the MCP server read it too.
-CelloBridge.OSC_IN_PORT, CelloBridge.OSC_OUT_PORT = 19886, 19887
-CelloBridge.PORT = int(os.environ.get("CELLO_BRIDGE_PORT", CelloBridge.PORT))
+SecondChair.OSC_IN_PORT, SecondChair.OSC_OUT_PORT = 19886, 19887
+SecondChair.PORT = int(os.environ.get("SECOND_CHAIR_PORT", SecondChair.PORT))
 
 # A fake-only action: from now on, new tracks land after the selected track, as in real Live.
 # (Off at first, so the other tests' track numbers stay put.)
-# Another one: "fake_user_tempo" changes the tempo the way Cello would by hand, outside the bridge.
-CelloBridge.ACTIONS = CelloBridge.ACTIONS + ("fake_after_selected", "fake_user_tempo", "fake_stuck_selection", "fake_recorded", "fake_clear_recorded")
+# Another one: "fake_user_tempo" changes the tempo the way the user would by hand, outside the bridge.
+SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_after_selected", "fake_user_tempo", "fake_stuck_selection", "fake_recorded", "fake_clear_recorded")
 def _fake_clear_recorded(self, track):
     m = SONG.tracks[int(track)].mixer_device
     m.volume.recorded, m.panning.recorded = [], []
     return {"cleared": True}
-CelloBridge.CelloBridge._a_fake_clear_recorded = _fake_clear_recorded
-CelloBridge.ACTIONS = CelloBridge.ACTIONS + ("fake_vocal_stack", "fake_stack_markers")
-CelloBridge.CelloBridge._a_fake_vocal_stack = _fake_vocal_stack
-CelloBridge.CelloBridge._a_fake_stack_markers = _fake_stack_markers
+SecondChair.SecondChair._a_fake_clear_recorded = _fake_clear_recorded
+SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_vocal_stack", "fake_stack_markers")
+SecondChair.SecondChair._a_fake_vocal_stack = _fake_vocal_stack
+SecondChair.SecondChair._a_fake_stack_markers = _fake_stack_markers
 def _fake_recorded(self, track):
     m = SONG.tracks[int(track)].mixer_device
     pts, pan = getattr(m.volume, "recorded", []), [v for _, v in getattr(m.panning, "recorded", [])]
@@ -579,12 +579,12 @@ def _fake_recorded(self, track):
             "volume_points": [[round(t, 3), round(v, 5)] for t, v in pts], "first": pts[0] if pts else None, "last": pts[-1] if pts else None,
             "loop": SONG.loop, "automation_arm": SONG.session_automation_record, "record": SONG.record_mode,
             "playing": SONG.is_playing, "armed": [t.name for t in SONG.tracks if t.arm]}
-CelloBridge.CelloBridge._a_fake_recorded = _fake_recorded
-CelloBridge.CelloBridge._a_fake_stuck_selection = lambda self, on=True: setattr(SONG, "stuck_selection", bool(on)) or {"stuck_selection": SONG.stuck_selection}
-CelloBridge.CelloBridge._a_fake_user_tempo = lambda self, bpm: setattr(SONG, "tempo", float(bpm)) or {"tempo": SONG.tempo}
-CelloBridge.CelloBridge._a_fake_after_selected = lambda self: setattr(SONG, "after_selected", True) or {"after_selected": True}
+SecondChair.SecondChair._a_fake_recorded = _fake_recorded
+SecondChair.SecondChair._a_fake_stuck_selection = lambda self, on=True: setattr(SONG, "stuck_selection", bool(on)) or {"stuck_selection": SONG.stuck_selection}
+SecondChair.SecondChair._a_fake_user_tempo = lambda self, bpm: setattr(SONG, "tempo", float(bpm)) or {"tempo": SONG.tempo}
+SecondChair.SecondChair._a_fake_after_selected = lambda self: setattr(SONG, "after_selected", True) or {"after_selected": True}
 
-bridge = CelloBridge.create_instance(None)
+bridge = SecondChair.create_instance(None)
 
 # ---- stand-in for the Chord Coach Max device (OSC over UDP on loopback) ----
 EM9 = (40, 55, 59, 62, 66)
@@ -592,31 +592,31 @@ stop_device = threading.Event()
 
 def fake_device():
     rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    rx.bind(("127.0.0.1", CelloBridge.OSC_OUT_PORT))
+    rx.bind(("127.0.0.1", SecondChair.OSC_OUT_PORT))
     rx.settimeout(0.1)
     tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    to_bridge = ("127.0.0.1", CelloBridge.OSC_IN_PORT)
+    to_bridge = ("127.0.0.1", SecondChair.OSC_IN_PORT)
     t0 = time.time()
     next_hello, stage, t_chord = 0.0, 0, 0.0
     while not stop_device.is_set():
         now = time.time() - t0
         if now >= next_hello:
-            tx.sendto(CelloBridge.osc_encode("/cc/hello"), to_bridge)
+            tx.sendto(SecondChair.osc_encode("/cc/hello"), to_bridge)
             next_hello += 2.0
         if stage == 0 and now >= 2.0:
             for n in EM9:
-                tx.sendto(CelloBridge.osc_encode("/cc/note", [n, 100]), to_bridge)
+                tx.sendto(SecondChair.osc_encode("/cc/note", [n, 100]), to_bridge)
             stage, t_chord = 1, now
         if stage == 1 and now >= t_chord + 0.3:
-            tx.sendto(CelloBridge.osc_encode("/cc/note", [71, 100]), to_bridge)
-            tx.sendto(CelloBridge.osc_encode("/cc/note", [71, 0]), to_bridge)
+            tx.sendto(SecondChair.osc_encode("/cc/note", [71, 100]), to_bridge)
+            tx.sendto(SecondChair.osc_encode("/cc/note", [71, 0]), to_bridge)
             stage = 2
         try:
             data, _ = rx.recvfrom(4096)
         except socket.timeout:
             continue
         try:
-            addr, args = CelloBridge.osc_decode(data)
+            addr, args = SecondChair.osc_decode(data)
             print("[device got]", addr, " ".join(str(a) for a in args), flush=True)
         except Exception as e:
             print("[device got] undecodable packet:", e, flush=True)

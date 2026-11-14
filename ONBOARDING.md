@@ -1,4 +1,4 @@
-# Set up the Music Studio assistant
+# Set up Second Chair
 
 **This file is for your AI agent.** Give it to an agent that can run commands on your computer (Claude Code, the Code tab of the Claude desktop app, or Codex) and say: *"Follow ONBOARDING.md and set this up with me."*
 
@@ -15,7 +15,7 @@ Follow these as written.
 - **Ask before you change anything** outside this folder. The only things this setup changes are listed in the README ("What the installer does"). Show the dry run first.
 - **Don't guess facts about the user.** Read them off the computer with the survey, or ask. Mark a guess as a guess.
 - **Ask your questions together,** in one or two short rounds, not one at a time and not as a long form.
-- **Never print, read out or paste the token** (`CelloBridge/token`). You never need to open it.
+- **Never print, read out or paste the token** (`SecondChair/token`). You never need to open it.
 - **Don't install anything else** (Node, Git, plugins, packages) without the user's yes. Tell them what and why.
 - **Plain, short sentences.** Don't rely on colour to make a point.
 - **You can't click in Live.** The user does the steps in Live; you tell them where, one step at a time.
@@ -23,7 +23,7 @@ Follow these as written.
 ## Phase 0: get the folder
 
 1. If you're already inside this repo, skip to phase 1.
-2. Ask where it should live. It must be a folder that stays put, such as `Documents/music-studio` or `~/music-studio`, because the AI app starts the tools from it.
+2. Ask where it should live. It must be a folder that stays put, such as `Documents/second-chair` or `~/second-chair`, because the AI app starts the tools from it.
 3. Clone it there: `git clone https://github.com/celloopa/music-studio-beta`. The repo is private, so this needs the user's GitHub sign-in (`gh auth login` if they have the GitHub CLI). If cloning fails, tell them how to download it as a ZIP from the repo page.
 
 ## Phase 1: look before you touch
@@ -55,8 +55,8 @@ Give these one at a time, and wait for "done" after each.
 **In Ableton Live**
 
 1. Quit Live fully if it's open, then open it again. Live only loads the script when it starts.
-2. Go to **Settings > Link, Tempo & MIDI**. Under **Control Surface**, pick **CelloBridge** in an empty row. Leave that row's Input and Output on **None**.
-3. Look at the bar at the bottom of Live. It says "CelloBridge ... ready".
+2. Go to **Settings > Link, Tempo & MIDI**. Under **Control Surface**, pick **SecondChair** in an empty row. Leave that row's Input and Output on **None**.
+3. Look at the bar at the bottom of Live. It says "SecondChair ... ready".
 
 Then run the check again. Under "Inside Live" it should say Live is answering. If it doesn't, use the table in the README ("If something goes wrong").
 
@@ -64,7 +64,7 @@ Then run the check again. Under "Inside Live" it should say Live is answering. I
 
 The tools load when the app starts, so the user has to restart it once:
 
-1. Tell the user: quit the app fully and open it again (on Windows, also quit it from the tray icon near the clock). Then start a new chat **in this folder** and say: *"Continue the Music Studio setup."*
+1. Tell the user: quit the app fully and open it again (on Windows, also quit it from the tray icon near the clock). Then start a new chat **in this folder** and say: *"Continue the Second Chair setup."*
 2. Tell them this chat ends there, and that the new chat picks up from the check.
 3. **Stop.**
 
@@ -76,7 +76,7 @@ In the new chat: run the check. If it says `READY`, and you can see tools whose 
 
 ## Phase 4: the studio profile
 
-The profile is one Markdown file on the user's computer, `CelloBridge/my-studio.md` in their home folder. The tools read it at the start of every session, so the assistant knows the user's name, gear and plugins without asking again.
+The profile is one Markdown file on the user's computer, `SecondChair/my-studio.md` in their home folder. The tools read it at the start of every session, so the assistant knows the user's name, gear and plugins without asking again.
 
 1. Call `my_studio` with no arguments. If a profile is already there, show it and ask what to change. If not, it returns the outline to fill in.
 2. Fill in what the survey already told you. Don't ask about these:
@@ -89,7 +89,7 @@ The profile is one Markdown file on the user's computer, `CelloBridge/my-studio.
 6. Write the profile in the outline's shape. Keep the `- **Name:** ...` line: the tools take the user's name from it. List the plugins in groups (instruments, effects, mixing and mastering), with a note on the ones the user said they use most.
 7. **Stop.** Show the whole profile and ask: "Save this?" On yes, save it with `my_studio` (pass the whole text). Saving keeps the previous version next to it.
 
-If the `my_studio` tool isn't available in your app, write the same text to `CelloBridge/my-studio.md` in the user's home folder, after the same "Save this?".
+If the `my_studio` tool isn't available in your app, write the same text to `SecondChair/my-studio.md` in the user's home folder, after the same "Save this?".
 
 ## Phase 5: permissions, so it isn't in the way
 
@@ -98,16 +98,16 @@ Explain these, and let the user choose:
 - **Tool prompts.** The app asks before it first uses each tool. Tools that only read (`live_status`, `live_get_levels`, `live_get_track`, `live_get_device`, `my_studio`, `studio_guide`, `audio_analyze`, the `theory_` tools) are safe to "always allow". Tools that change the set are worth seeing each time at first.
 - **Seeing Live.** `live_screenshot` captures Live's own windows only, never the rest of the screen.
 - **Computer use** (the app clicking for the user) is optional and off unless they turn it on. `docs/needs-your-hands.md` says what it's for and its rules.
-- **The skill** is optional: the tools carry the same guide. The installer made `dist/music-studio-skill.zip` for uploading in the Claude desktop app (Settings > Capabilities > Skills).
+- **The skill** is optional: the tools carry the same guide. The installer made `dist/second-chair-skill.zip` for uploading in the Claude desktop app (Settings > Capabilities > Skills).
 
 ## Phase 6: first session
 
 1. Ask the user to open a song they know well.
 2. Call `live_status` and say what's in the set: tracks, returns, Main.
-3. Read the guide once: the `music-studio` skill if your app loaded it, or the `studio_guide` tool.
+3. Read the guide once: the `second-chair` skill if your app loaded it, or the `studio_guide` tool.
 4. Offer the first things to try from the README ("First things to try"), and let the user pick. Don't start changing the set on your own.
 5. Tell them the three guides in `docs/`: what they can ask for, what needs their hands, and what's not proven yet.
-6. Tell them how to report a problem: they say "report a problem with the Music Studio assistant", and you follow `CONTRIBUTING.md`. You show them the text before anything is posted.
+6. Tell them how to report a problem: they say "report a problem with Second Chair", and you follow `CONTRIBUTING.md`. You show them the text before anything is posted.
 
 ## Done means
 

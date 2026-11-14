@@ -1,12 +1,12 @@
-// Read-only check of the CelloBridge socket: sends `ping` and `get_session` over 127.0.0.1:9885 with the token
-// from ~/CelloBridge/token (same lookup as cello-live: APPDATA || HOME). Never prints the token.
+// Read-only check of the SecondChair socket: sends `ping` and `get_session` over 127.0.0.1:9885 with the token
+// from ~/SecondChair/token (same lookup as second-chair: APPDATA || HOME). Never prints the token.
 // Usage: node mac/probe.ts
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-const PORT = Number(process.env.CELLO_BRIDGE_PORT || 9885);
-const token = fs.readFileSync(path.join(process.env.APPDATA || process.env.HOME || ".", "CelloBridge", "token"), "utf8").trim();
+const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
+const token = fs.readFileSync(path.join(process.env.APPDATA || process.env.HOME || ".", "SecondChair", "token"), "utf8").trim();
 
 function call(id: number, action: string): Promise<any> {
   return new Promise((resolve, reject) => {

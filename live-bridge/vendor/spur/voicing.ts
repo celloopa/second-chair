@@ -1,4 +1,4 @@
-// From Spur (celloopa/spotter, branch claude/spur, Mac working tree), sent by the Spur lead 2026-11-07 with Cello's OK.
+// From Spur (celloopa/spotter, branch claude/spur, Mac working tree), sent by the Spur lead 2026-11-07 with the author's OK.
 // How a chord sits on the MPK mini (25 keys, C to C): the root in the lower octave, the other tones stacked above
 // it. Used by the island to sound a chord and by the keys strip to light it. No Node imports: served to the pages.
 

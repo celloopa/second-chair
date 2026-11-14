@@ -18,7 +18,7 @@ export async function captureLive(mode: "main" | "all" = "main", maxWidth = 1600
     throw new Error("live_screenshot isn't built for this computer yet (Windows and Mac only).");
   }
   const width = Math.max(400, Math.min(3000, Math.round(maxWidth) || 1600));
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cello-live-shot-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-shot-"));
   const script = path.join(import.meta.dirname, "screenshot.ps1");
   // Full path: apps like HeyClicky start this server with a bare environment, so PATH may be missing.
   const ps = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
@@ -49,7 +49,7 @@ type MacWin = { id: number; title: string; layer: number; onscreen: boolean; wid
 // Full paths: apps like HeyClicky start this server with a bare environment, so PATH may be missing.
 const OSASCRIPT = "/usr/bin/osascript", SCREENCAPTURE = "/usr/sbin/screencapture", SIPS = "/usr/bin/sips";
 const PERMISSION = "Screen Recording permission is missing. In System Settings > Privacy & Security > Screen Recording, " +
-  "turn it on for the app that runs cello-live (Claude, HeyClicky or Terminal), then quit and reopen that app.";
+  "turn it on for the app that runs second-chair (Claude, HeyClicky or Terminal), then quit and reopen that app.";
 
 function run(cmd: string, args: string[]): Promise<{ out: string; err: string }> {
   return new Promise((resolve, reject) => {
@@ -75,7 +75,7 @@ async function captureLiveMac(mode: "main" | "all", maxWidth: number): Promise<S
   if (!main.onscreen) throw new Error("Live is minimised, hidden or on another desktop. Restore its window, then try again.");
   const targets = mode === "all" ? [main, ...wins.filter((w) => w !== main && w.onscreen)] : [main];
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cello-live-shot-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-shot-"));
   try {
     const shots: Shot[] = [];
     for (const [i, w] of targets.entries()) {

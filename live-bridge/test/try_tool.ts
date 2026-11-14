@@ -1,4 +1,4 @@
-// Calls one cello-live tool through a fresh copy of the MCP server, so a session that loaded an older server
+// Calls one second-chair tool through a fresh copy of the MCP server, so a session that loaded an older server
 // can still try new tools. Usage: node live-bridge\test\try_tool.ts live_show_on_keys "{\"chord\":\"Dm7\"}"
 // From PowerShell 5.1, JSON with spaces gets split: put it in a file and pass @file.json, or pipe it in and pass -.
 import { spawn } from "node:child_process";

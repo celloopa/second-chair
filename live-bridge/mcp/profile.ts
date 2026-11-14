@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export const profilePath = () => process.env.CELLO_STUDIO_FILE || path.join(os.homedir(), "CelloBridge", "my-studio.md");
+export const profilePath = () => process.env.SECOND_CHAIR_STUDIO_FILE || path.join(os.homedir(), "SecondChair", "my-studio.md");
 
 export function readProfile(): string | null {
   try { const t = fs.readFileSync(profilePath(), "utf8").trim(); return t || null; } catch { return null; }

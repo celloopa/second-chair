@@ -1,4 +1,4 @@
-// Chord logic shared by the cello-live MCP server and Chord Coach's build step.
+// Chord logic shared by the second-chair MCP server and Chord Coach's build step.
 // Built on Spur's theory.ts (naming, key readings) and voicing.ts (laying a chord on the MPK's 25 keys).
 // No Node imports, so it can be bundled or tested anywhere.
 

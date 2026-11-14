@@ -28,7 +28,7 @@ This page lists what falls in that gap, and how computer use works.
 
 ## The list
 
-"Tools" means the cello-live tools. A guess is marked as a guess.
+"Tools" means the second-chair tools. A guess is marked as a guess.
 
 ### Files and the set itself
 

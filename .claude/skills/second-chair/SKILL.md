@@ -1,11 +1,11 @@
 ---
-name: music-studio
-description: How to help a producer inside Ableton Live through the cello-live tools - which tool fits which request ("find me a warm pad", "build a kit", "swap the snare", "show me Dm7", "what am I playing", "look at my set", "check my levels", "is it loud enough"), the safety rules, the mentor rule, playbooks per kind of job, fixes for common problems, and the user's own studio profile. Use for any music-making, practice, mixing, mastering or Ableton task, when the user asks for help in Live, or before calling live_* or theory_* tools. Other MCP apps get this same guide from the studio_guide tool.
+name: second-chair
+description: How to help a producer inside Ableton Live through the second-chair tools - which tool fits which request ("find me a warm pad", "build a kit", "swap the snare", "show me Dm7", "what am I playing", "look at my set", "check my levels", "is it loud enough"), the safety rules, the mentor rule, playbooks per kind of job, fixes for common problems, and the user's own studio profile. Use for any music-making, practice, mixing, mastering or Ableton task, when the user asks for help in Live, or before calling live_* or theory_* tools. Other MCP apps get this same guide from the studio_guide tool.
 ---
 
-# Music Studio
+# Second Chair
 
-The user makes music in **Ableton Live 12** (12.3 or newer), on Windows or a Mac. The Mac's differences are in "On the Mac" at the end. Claude helps inside Live through **cello-live**: an MCP server that talks to the CelloBridge Remote Script in Live.
+The user makes music in **Ableton Live 12** (12.3 or newer), on Windows or a Mac. The Mac's differences are in "On the Mac" at the end. Claude helps inside Live through **second-chair**: an MCP server that talks to the SecondChair Remote Script in Live.
 
 **First:** read the user's studio profile with the `my_studio` tool (section 5). It says who they are, how they like to be taught, and what's in their studio. The tool contract is in `live-bridge/README.md`.
 
@@ -33,7 +33,7 @@ The user makes music in **Ableton Live 12** (12.3 or newer), on Windows or a Mac
    - If `set` has a `warning`, Live has an empty "Untitled" set open, not the user's song. Tell the user and ask before changing anything.
    - If it has a `version_warning`, Live is running an older bridge than the tools. Ask the user to save, fully quit Live and open it again.
    - A new track lands right after the selected track, not at the end. Use the track number the tool returns.
-2. If it says Live can't be reached, tell the user in one line. Live must be open, with CelloBridge picked as a Control Surface (see Fixes). Don't search the disk for installers.
+2. If it says Live can't be reached, tell the user in one line. Live must be open, with SecondChair picked as a Control Surface (see Fixes). Don't search the disk for installers.
 3. If you need to see the screen, call `live_screenshot`.
 
 ## Playbooks (read the one for the job)
@@ -89,12 +89,12 @@ Step-by-step best practices per kind of job, in `playbooks/` next to this file (
 - It runs only a fixed list of actions, on 127.0.0.1, with a token. Nothing deletes tracks, clips or devices.
 - Clips go only into empty slots on MIDI tracks.
 - Loads go only onto the named track. A second instrument on a track is refused, because Live would replace the first one.
-- **The one replacement:** `live_swap_pad_sample` replaces one pad's sample, only when the user asks for it. The old sample is saved in `~/CelloBridge/pad-swaps.jsonl` first. In Live 12.4, Live rebuilds the pad, so its Simpler settings reset; volume and choke group are kept. Say this before swapping a pad the user has tuned by hand.
+- **The one replacement:** `live_swap_pad_sample` replaces one pad's sample, only when the user asks for it. The old sample is saved in `~/SecondChair/pad-swaps.jsonl` first. In Live 12.4, Live rebuilds the pad, so its Simpler settings reset; volume and choke group are kept. Say this before swapping a pad the user has tuned by hand.
 - Everything the tools change can be taken back with `live_revert` (only the bridge's own changes) or `live_undo` (Live's global undo). Suggest saving the set before a big session.
 
 ## 5. The user's studio
 
-Every studio is different, so the user's own details live in their **studio profile**, not in this guide: `~/CelloBridge/my-studio.md` (on Windows, `%USERPROFILE%\CelloBridge\my-studio.md`).
+Every studio is different, so the user's own details live in their **studio profile**, not in this guide: `~/SecondChair/my-studio.md` (on Windows, `%USERPROFILE%\SecondChair\my-studio.md`).
 
 - **Read it at the start of a session:** the `my_studio` tool returns it (or read the file). It holds the user's name, how they like to be taught, their controller, instruments, sample folders and plugins, and fixes that are about their machine.
 - **If there isn't one yet,** `my_studio` returns the questions to ask. Ask them a few at a time, then save the answers with `my_studio` (`text`). Don't guess gear or folders.
@@ -108,7 +108,7 @@ Every studio is different, so the user's own details live in their **studio prof
 
 - **"Can't reach Live":**
   - Is Live open?
-  - Settings > Link, Tempo & MIDI > Control Surface: an empty row set to **CelloBridge**, Input and Output None. Live's status bar says "CelloBridge 0.9.6 ready" (or the current version).
+  - Settings > Link, Tempo & MIDI > Control Surface: an empty row set to **SecondChair**, Input and Output None. Live's status bar says "SecondChair 0.9.6 ready" (or the current version).
 - **"No bridge token found", or anything about the setup:** the user runs the installer at the top of the repo: `powershell -ExecutionPolicy Bypass -File install.ps1` on Windows, `sh install.sh` on a Mac. With `--check` it changes nothing and reports the setup in plain lines.
 - **After changing the Remote Script's code:** The user must **fully quit and reopen Live**. Switching the Control Surface dropdown doesn't reload code. Run `install.ps1` first to copy the script into the User Library. A restart opens a fresh set, so remind the user to save first.
 - **New tools missing in a chat:** that session loaded an older server. Start a new session, or run `node live-bridge\test\try_tool.ts <tool> "<json>"`.
@@ -118,10 +118,10 @@ Every studio is different, so the user's own details live in their **studio prof
 
 ## 8. Working on the tools
 
-- Code is in the music-studio repo:
+- Code is in the second-chair repo:
   - `live-bridge/` holds the Remote Script, the MCP server and the tests.
   - `chord-coach/` is the Chord Coach device. Edit it there, then run `node chord-coach\build.ts --install`.
-- Test without Live: run `python live-bridge\test\fake_live.py 120`, then `node live-bridge\test\mcp_client.ts` (the run takes about a minute). While Live is open, set `CELLO_BRIDGE_PORT=19885` in both terminals.
+- Test without Live: run `python live-bridge\test\fake_live.py 120`, then `node live-bridge\test\mcp_client.ts` (the run takes about a minute). While Live is open, set `SECOND_CHAIR_PORT=19885` in both terminals.
 - Keep bridge action and tool names platform-neutral: a Mac port follows the same contract (`live-bridge/README.md`).
 - Commit or push only when the user asks.
 
@@ -131,19 +131,19 @@ The Mac runs the same bridge, tools and Chord Coach as the PC, with the same too
 
 - **Folders:**
   - Live data is in `~/Music/Ableton/`. The User Library is **not nested**: it's `~/Music/Ableton/User Library`.
-  - The Remote Script is in `User Library/Remote Scripts/CelloBridge`.
+  - The Remote Script is in `User Library/Remote Scripts/SecondChair`.
   - Chord Coach is in `User Library/Presets/MIDI Effects/Max MIDI Effect/Chord Coach`.
-  - The token is `~/CelloBridge/token`. Pad swaps are saved in `~/CelloBridge/pad-swaps.jsonl`.
+  - The token is `~/SecondChair/token`. Pad swaps are saved in `~/SecondChair/pad-swaps.jsonl`.
 - **Install or update:**
   1. Run `mac/install.sh`. It copies the Remote Script and Chord Coach, and keeps the token.
   2. After a Chord Coach change, run `node chord-coach/build.ts --install`. It finds the Mac folder by itself.
   3. After a Remote Script change, fully quit and reopen Live.
-- **`live_screenshot`** needs Screen Recording permission for the app that runs cello-live (Claude, Terminal, or another MCP app).
+- **`live_screenshot`** needs Screen Recording permission for the app that runs second-chair (Claude, Terminal, or another MCP app).
   - If the tool says the permission is missing, ask the user to turn it on in System Settings > Privacy & Security > Screen Recording, then quit and reopen that app.
   - It can't see Live when Live is minimised, hidden or on another desktop.
-- **Registering cello-live:**
-  - The command is `/opt/homebrew/bin/node ~/Documents/music-studio/live-bridge/mcp/server.ts`. Use the full path to node: apps started from the Dock may not find Homebrew.
+- **Registering second-chair:**
+  - The command is `/opt/homebrew/bin/node ~/Documents/second-chair/live-bridge/mcp/server.ts`. Use the full path to node: apps started from the Dock may not find Homebrew.
   - Claude Code has it at user scope. Other MCP apps take the same command as a custom connector.
 - **Fake tests:**
   - Use `python3`, not `python`.
-  - While Live is open, put `CELLO_BRIDGE_PORT=19885` in front of both commands.
+  - While Live is open, put `SECOND_CHAIR_PORT=19885` in front of both commands.

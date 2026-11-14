@@ -1,4 +1,4 @@
-// Drives the cello-live MCP server over stdio like Claude or HeyClicky would, and prints each result.
+// Drives the second-chair MCP server over stdio like Claude or HeyClicky would, and prints each result.
 import { spawn } from "node:child_process";
 import path from "node:path";
 import net from "node:net";
@@ -6,11 +6,11 @@ import os from "node:os";
 import fs from "node:fs";
 
 // Live's tags come from a small stand-in tag file, so results don't depend on which packs are installed.
-const STUDIO_FILE = path.join(os.tmpdir(), `cello-studio-test-${process.pid}.md`);
+const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.pid}.md`);
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
-  // Saved pad swaps go to a fresh temp folder, never the user's real ~/CelloBridge/pad-swaps.jsonl.
-  env: { ...process.env, CELLO_STUDIO_FILE: STUDIO_FILE, CELLO_SAMPLE_DIRS: os.tmpdir(), CELLO_LIVE_TITLE: "being-dumb* - Ableton Live 12 Suite", CELLO_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
-    CELLO_STATE_DIR: path.join(os.tmpdir(), `cello-bridge-test-${process.pid}`) } });
+  // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
+  env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "being-dumb* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
+    SECOND_CHAIR_STATE_DIR: path.join(os.tmpdir(), `second-chair-test-${process.pid}`) } });
 let buf = ""; const waiting = new Map<number, (m: any) => void>();
 server.stdout.on("data", (c) => {
   buf += c; let nl;
@@ -77,7 +77,7 @@ await expect("ok", "live_browse", { tree: "places" }, "Samples");
 const listing = await expect("ok", "live_browse", { tree: "places", path: "Samples/Fluffy Kit - finger drums" }, "1 kick.wav");
 if (listing.includes(".asd")) { failed++; console.log("!! .asd files should be hidden"); }
 await expect("refused", "live_browse", { tree: "nowhere" });
-await expect("ok", "studio_guide", { section: "safety" }, "pad-swaps.jsonl");                 // the music-studio skill, for HeyClicky
+await expect("ok", "studio_guide", { section: "safety" }, "pad-swaps.jsonl");                 // the second-chair skill, for HeyClicky
 await expect("refused", "studio_guide", { section: "nope" }, "Sections:");
 await expect("ok", "live_load_device", { track: 1, name: "Drum Buss" }, "Drum Buss");                // audio effect on the bass track
 await expect("ok", "live_load_device", { track: 1, path: "Reverb/Hall/Large Hall" }, "Large Hall");
@@ -190,7 +190,7 @@ await expect("refused", "live_audition", { step: "status" }, "No audition is run
 await call("live_screenshot", { max_width: 800 }); // fake_live has no Live window: expect "Live is not open" (or a picture if real Live is also open)
 await call("live_undo");
 
-// Which set is open (0.6.1): read from Live's window title (the test sets CELLO_LIVE_TITLE).
+// Which set is open (0.6.1): read from Live's window title (the test sets SECOND_CHAIR_LIVE_TITLE).
 for (const [title, want, warn] of [["being-dumb* - Ableton Live 12 Suite", "being-dumb", false], ["Untitled - Ableton Live 12 Suite", "Untitled", true]] as const) {
   const { parseTitle } = await import("../mcp/liveset.ts");
   const r = parseTitle(title) as any;
@@ -199,8 +199,8 @@ for (const [title, want, warn] of [["being-dumb* - Ableton Live 12 Suite", "bein
 if (!/"set": \{\s*"name": "being-dumb",\s*"unsaved": true/.test(status.result?.content?.[0]?.text ?? "")) { failed++; console.log("!! live_status should report the open set"); }
 // A new track's real index (0.6.1): real Live puts it after the selected track, not at the end.
 const fakeOnly = (action: string, params: Record<string, unknown> = {}) => new Promise<void>((res) => {
-  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.CELLO_BRIDGE_PORT || 9885) }, () =>
-    s.write(JSON.stringify({ id: 1, token: fs.readFileSync(path.join(os.homedir(), "CelloBridge", "token"), "utf8").trim(), action, params }) + "\n"));
+  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.SECOND_CHAIR_PORT || 9885) }, () =>
+    s.write(JSON.stringify({ id: 1, token: fs.readFileSync(path.join(os.homedir(), "SecondChair", "token"), "utf8").trim(), action, params }) + "\n"));
   s.on("data", () => { s.destroy(); res(); });
 });
 await fakeOnly("fake_after_selected");
@@ -233,7 +233,7 @@ if (st.includes("Revert me")) { failed++; console.log("!! the reverted track sho
 // Sample chopping (0.8.0): a file into Simpler, slice settings, an audio clip's transpose, and deleting a track on request.
 const js = (t: string) => { try { return JSON.parse(t); } catch { return {}; } };
 await expect("refused", "live_load_sample", { new_track: true, file: "no such vocal zzz" }, "No audio file matching");
-const ch = js(await expect("ok", "live_load_sample", { new_track: true, file: "cello-fake-vocal 97", mode: "slice", slice_by: "region",
+const ch = js(await expect("ok", "live_load_sample", { new_track: true, file: "fake-live-vocal 97", mode: "slice", slice_by: "region",
   regions: 8, warp: false, transpose: -6 }, "\"mode\": \"slice\""));
 if (ch.regions !== 8 || ch.transpose !== "-6 st" || ch.warp !== false || ch.revert_steps !== 3 || ch.slices !== 8) { failed++; console.log("!! the chop load should set slice/region 8/-6 st/warp off with 3 revert steps"); }
 await expect("ok", "live_get_simpler", { track: ch.track }, "\"slice_by\": \"region\"");
@@ -243,7 +243,7 @@ await expect("ok", "live_revert", {}, "reverted");
 await expect("ok", "live_get_simpler", { track: ch.track }, "\"slice_by\": \"region\"");
 await expect("ok", "live_revert", { steps: 3 }, "made the MIDI track");
 const st2 = await expect("ok", "live_status", {}, "tracks");
-if (st2.includes("cello-fake-vocal")) { failed++; console.log("!! the reverted chop track should be gone"); }
+if (st2.includes("fake-live-vocal")) { failed++; console.log("!! the reverted chop track should be gone"); }
 const audioTrack = (js(st2).session?.tracks ?? []).findIndex((t: any) => t.name === "Bass guitar");
 await expect("ok", "live_set_audio_clip", { track: audioTrack, slot: 7, transpose: -6, warp: false }, "\"transpose\": -6");
 const fc = js(await expect("ok", "live_load_sample", { new_track: true, track_name: "Vox Chops", from_clip: { track: audioTrack, slot: 7 }, mode: "one-shot" }, "one-shot"));
@@ -352,8 +352,8 @@ const mid = parseFloat(at(2.5));
 if (!(mid > -11 && mid < -1)) { failed++; console.log("!! half way through the ramp should read between -12 and 0 dB"); }
 const fakeAsk = (action: string, params: Record<string, unknown> = {}) => new Promise<any>((res) => {
   let got = "";
-  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.CELLO_BRIDGE_PORT || 9885) }, () =>
-    s.write(JSON.stringify({ id: 1, token: fs.readFileSync(path.join(os.homedir(), "CelloBridge", "token"), "utf8").trim(), action, params }) + "\n"));
+  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.SECOND_CHAIR_PORT || 9885) }, () =>
+    s.write(JSON.stringify({ id: 1, token: fs.readFileSync(path.join(os.homedir(), "SecondChair", "token"), "utf8").trim(), action, params }) + "\n"));
   s.on("data", (c) => { got += c; if (got.includes("\n")) { s.destroy(); res(js(got).result ?? {}); } });
 });
 const rr = await fakeAsk("fake_recorded", { track: tlTrack });
@@ -465,10 +465,10 @@ if ((await fakeAsk("fake_stack_markers", { track: vs.stack })).markers.length !=
 await expect("ok", "live_align_audio", { clip: stackRef, grid: "1/4", max_ms: 40 }, "the 1/4 grid");
 
 // Measuring a file (0.9.7): works on the generated take, with a reference, and refuses a file that isn't audio.
-const leadWav = path.join(os.tmpdir(), "cello-fake-lead-vox.wav");
+const leadWav = path.join(os.tmpdir(), "fake-live-lead-vox.wav");
 const an = js(await expect("ok", "audio_analyze", { file: leadWav, reference: leadWav }, "integrated_lufs"));
 if (typeof an.integrated_lufs !== "number" || an.channels !== 1 || an.against_reference?.louder_by_lu !== 0 || !Array.isArray(an.reading)) { failed++; console.log("!! analyze should give loudness, a reading and a zero difference against itself: " + JSON.stringify(an).slice(0, 300)); }
-await expect("refused", "audio_analyze", { file: path.join(os.tmpdir(), "cello-fake-vocal_97_A#m.wav") }, "isn't a WAV file");
+await expect("refused", "audio_analyze", { file: path.join(os.tmpdir(), "fake-live-vocal_97_A#m.wav") }, "isn't a WAV file");
 await expect("refused", "audio_analyze", {}, "file or clip");
 await expect("ok", "studio_guide", { playbook: "mastering" }, "LUFS");
 if (js(await expect("ok", "live_status", {}, "bridge")).version_warning) { failed++; console.log("!! a newer server with a current Remote Script shouldn't warn"); }
@@ -490,7 +490,7 @@ fs.rmSync(STUDIO_FILE, { force: true }); fs.rmSync(STUDIO_FILE.replace(/\.md$/, 
 
 // a client without the token must be refused by the bridge itself
 await new Promise<void>((res) => {
-  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.CELLO_BRIDGE_PORT || 9885) }, () => s.write(JSON.stringify({ id: 1, token: "wrong", action: "get_session" }) + "\n"));
+  const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.SECOND_CHAIR_PORT || 9885) }, () => s.write(JSON.stringify({ id: 1, token: "wrong", action: "get_session" }) + "\n"));
   s.on("data", (d) => { console.log("\n# wrong token ->", d.toString().trim()); s.destroy(); res(); });
 });
 server.stdin.end();

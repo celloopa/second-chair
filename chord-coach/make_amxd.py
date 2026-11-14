@@ -29,10 +29,10 @@ boxes = [
     box("obj-9", "newobj", [420.0, 80.0, 70.0, 22.0], "transport", 2, 9),
     box("obj-10", "newobj", [420.0, 110.0, 75.0, 22.0], "prepend bar", 1, 1),
     box("obj-11", "comment", [240.0, 20.0, 170.0, 20.0], "MIDI passes straight through", 1, 0),
-    # CelloBridge link (loopback OSC): held notes and a heartbeat out, "show these notes" in
+    # SecondChair link (loopback OSC): held notes and a heartbeat out, "show these notes" in
     box("obj-12", "newobj", [560.0, 325.0, 140.0, 22.0], "udpsend 127.0.0.1 9886", 1, 0),
     box("obj-13", "newobj", [560.0, 95.0, 100.0, 22.0], "udpreceive 9887", 1, 1),
-    box("obj-14", "comment", [560.0, 70.0, 260.0, 20.0], "CelloBridge: /cc/show and /cc/clear in, /cc/note and /cc/hello out", 1, 0),
+    box("obj-14", "comment", [560.0, 70.0, 260.0, 20.0], "SecondChair: /cc/show and /cc/clear in, /cc/note and /cc/hello out", 1, 0),
 ]
 lines = [
     line("obj-1", 0, "obj-2", 0),   # pass-through
@@ -67,7 +67,7 @@ patcher = {"patcher": {
     "statusbarvisible": 2,
     "toolbarvisible": 1,
     "devicewidth": W,
-    "description": "Shows the E Dorian interlude chords (or one Claude sends) on the MPK mini IV, guitar and bass, names what you play, and reports it to CelloBridge.",
+    "description": "Shows the E Dorian interlude chords (or one Claude sends) on the MPK mini IV, guitar and bass, names what you play, and reports it to SecondChair.",
     "digest": "",
     "tags": "",
     "style": "",

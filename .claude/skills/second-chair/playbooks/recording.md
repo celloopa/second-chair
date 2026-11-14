@@ -30,9 +30,9 @@ Use for "I want to record a verse", "my mic is too quiet", "set up the guitar", 
 Live 12 has no ARA, so Melodyne works by **Transfer**: it has to hear the part played in real time. One step at a time:
 
 1. **Melodyne first on the vocal track:** `live_load_device` (`name: "Melodyne"`, `tree: "plugins"`), then `live_move_device` to `position: 0`. Melodyne must come before any effects.
-2. **the user opens Melodyne's window and presses Transfer.** The bridge can't press buttons inside a plugin window.
+2. **The user opens Melodyne's window and presses Transfer.** The bridge can't press buttons inside a plugin window.
 3. **`live_play_bars`** with `melodyne_track` and the bars of the part. It checks Melodyne is first and there are clips there, plays exactly those bars once, stops, and puts the play position back. Melodyne should now show the notes; if not, Transfer wasn't on: press it and run again.
-4. **the user edits in Melodyne.** Teach one tool at a time: the main tool to drag notes, Correct Pitch for a gentle fix (start around 50 % pitch centre, 0 % drift). Keep the character; don't flatten every note.
+4. **The user edits in Melodyne.** Teach one tool at a time: the main tool to drag notes, Correct Pitch for a gentle fix (start around 50 % pitch centre, 0 % drift). Keep the character; don't flatten every note.
 5. **Print it:** `live_bounce_track` on the vocal track over the same bars (Post FX: Melodyne's edits are in the take). It lands on a new audio track right after. Then the user switches off the original track (or removes Melodyne) to save CPU.
 6. If the vocal is edited later (a new take), Transfer again for just those bars.
 

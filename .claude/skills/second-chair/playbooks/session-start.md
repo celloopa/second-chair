@@ -11,7 +11,7 @@ Use at the start of a music session, after a gap (the user was away, Live was re
    - `set.unsaved`: fine, but suggest Ctrl+S before a big change (a recording take, a delete).
    - `session.tracks`: numbered from 0. Live's own numbers start at 1, so index 4 is "track 5" to the user. Use names when you talk to the user.
 2. **Say what you see in one or two lines:** the set, the tempo, the key, and what you'll do first.
-3. **If Live can't be reached:** tell the user in one line. Live must be open with CelloBridge in Settings > Link, Tempo & MIDI > Control Surface. Machine-specific fixes are in the user's studio profile (`my_studio`).
+3. **If Live can't be reached:** tell the user in one line. Live must be open with SecondChair in Settings > Link, Tempo & MIDI > Control Surface. Machine-specific fixes are in the user's studio profile (`my_studio`).
 
 ## New tools after a bridge update
 

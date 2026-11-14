@@ -1,6 +1,6 @@
 // Chord Coach - jsui for the Chord Coach Max for Live MIDI effect.
 // Shows the E Dorian interlude chords on the MPK mini IV's 25 keys, a guitar shape and a bass hint,
-// names what you're playing (with ringing notes and a chord trail), and talks to the CelloBridge Remote Script.
+// names what you're playing (with ringing notes and a chord trail), and talks to the SecondChair Remote Script.
 // Inputs:  "note <pitch> <velocity>" from the track's MIDI, "bar <n>" from Live's transport,
 //          "/cc/show <label> <pitch>..." and "/cc/clear" from the bridge (udpreceive 9887).
 // Outlets: 0 = "<pitch> <velocity>" pairs to preview a chord through the track's instrument,

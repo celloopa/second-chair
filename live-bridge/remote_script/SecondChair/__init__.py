@@ -1,9 +1,9 @@
-# CelloBridge: an Ableton Live Remote Script that exposes a small, fixed set of
-# actions over a loopback TCP socket, for the cello-live MCP server.
+# SecondChair: an Ableton Live Remote Script that exposes a small, fixed set of
+# actions over a loopback TCP socket, for the second-chair MCP server.
 #
 # Safety:
 # - Listens on 127.0.0.1 only.
-# - Every request must carry the token stored in %APPDATA%\CelloBridge\token.
+# - Every request must carry the token stored in %APPDATA%\SecondChair\token.
 # - Only the actions in ACTIONS run. Nothing executes code sent by a client.
 # - Nothing deletes tracks or clips; mistakes are reverted with the "undo" action
 #   (Live's own undo).
@@ -972,7 +972,7 @@ def _simpler_plan(d, mode=None, slice_by=None, sensitivity=None, beat_division=N
 
 
 def create_instance(c_instance):
-    return CelloBridge(c_instance)
+    return SecondChair(c_instance)
 
 
 def _token_paths():
@@ -984,7 +984,7 @@ def _token_paths():
                  os.path.join(os.path.expanduser("~"), "AppData", "Roaming"),
                  os.path.expanduser("~")):
         if base:
-            paths.append(os.path.join(base, "CelloBridge", "token"))
+            paths.append(os.path.join(base, "SecondChair", "token"))
     return paths
 
 
@@ -1000,7 +1000,7 @@ def _read_token():
     return None
 
 
-class CelloBridge(ControlSurface):
+class SecondChair(ControlSurface):
 
     def __init__(self, c_instance):
         ControlSurface.__init__(self, c_instance)
@@ -1018,15 +1018,15 @@ class CelloBridge(ControlSurface):
         self._last_hello = None   # epoch ms of the last message from the device
         self._last_shown = None
         if not self._token:
-            self.log_message("CelloBridge: no token file, refusing all requests. Looked in: %s" % "; ".join(_token_paths()))
-            self.show_message("CelloBridge: token missing, run install.ps1")
+            self.log_message("SecondChair: no token file, refusing all requests. Looked in: %s" % "; ".join(_token_paths()))
+            self.show_message("SecondChair: token missing, run install.ps1")
         self._thread = threading.Thread(target=self._serve)
         self._thread.daemon = True
         self._thread.start()
         self._osc_thread = threading.Thread(target=self._osc_serve)
         self._osc_thread.daemon = True
         self._osc_thread.start()
-        self.show_message("CelloBridge %s ready" % VERSION)
+        self.show_message("SecondChair %s ready" % VERSION)
 
     def disconnect(self):
         self._running = False
@@ -1053,9 +1053,9 @@ class CelloBridge(ControlSurface):
             s.listen(4)
             s.settimeout(1.0)
             self._sock = s
-            self.log_message("CelloBridge: listening on %s:%d" % (HOST, PORT))
+            self.log_message("SecondChair: listening on %s:%d" % (HOST, PORT))
         except Exception as e:
-            self.log_message("CelloBridge: could not listen: %s" % e)
+            self.log_message("SecondChair: could not listen: %s" % e)
             return
         while self._running:
             try:
@@ -1076,9 +1076,9 @@ class CelloBridge(ControlSurface):
             u.bind((HOST, OSC_IN_PORT))
             u.settimeout(1.0)
             self._osc_sock = u
-            self.log_message("CelloBridge: Chord Coach OSC listening on %s:%d" % (HOST, OSC_IN_PORT))
+            self.log_message("SecondChair: Chord Coach OSC listening on %s:%d" % (HOST, OSC_IN_PORT))
         except Exception as e:
-            self.log_message("CelloBridge: could not listen for Chord Coach on UDP %d (%s); the TCP bridge still works" % (OSC_IN_PORT, e))
+            self.log_message("SecondChair: could not listen for Chord Coach on UDP %d (%s); the TCP bridge still works" % (OSC_IN_PORT, e))
             return
         while self._running:
             try:

@@ -46,7 +46,7 @@ const VOCAB: Entry[] = [
   { words: ["guitar", "guitars"], kind: "sound", folders: ["Guitar & Plucked"], tags: ["Electric Guitar", "Acoustic Guitar", "Classical Guitar"], names: ["guitar", "gtr"] },
   { words: ["harp"], kind: "sound", folders: ["Guitar & Plucked"], tags: ["Harp"], names: ["harp"], loose: true },
   { words: ["strings", "string", "violin", "cello", "orchestra", "orchestral"], kind: "sound", folders: ["Strings"],
-    tags: ["String Ensemble", "Synth Strings", "Misc Strings", "Violin", "the user"], names: ["string", "violin", "cello", "orchestra"] },
+    tags: ["String Ensemble", "Synth Strings", "Misc Strings", "Violin", "Cello"], names: ["string", "violin", "cello", "orchestra"] },
   { words: ["brass", "horn", "horns", "trumpet", "trombone"], kind: "sound", folders: ["Brass"], tags: ["Brass Ensemble", "Synth Brass", "French Horn", "Misc Brass"], names: ["brass", "horn", "trumpet"] },
   { words: ["choir", "voice", "voices", "vocal", "vocals", "vox"], kind: "sound", folders: ["Voices"],
     tags: ["Choir", "Solo Voice", "Synth Voice", "Vocal FX"], names: ["choir", "vox", "vocal", "voice", "ooh", "aah"] },
@@ -148,9 +148,9 @@ export function parseXmp(text: string, into: TagIndex) {
 }
 
 /** Folders that may hold "Ableton Folder Info/*.xmp": Live's Core Library, each Factory Pack, the User Library.
- *  CELLO_ABLETON_LIBRARIES (folders split by ; on Windows or : on Mac) replaces the guesses. */
+ *  SECOND_CHAIR_ABLETON_LIBRARIES (folders split by ; on Windows or : on Mac) replaces the guesses. */
 export function tagFolders(): string[] {
-  const env = process.env.CELLO_ABLETON_LIBRARIES;
+  const env = process.env.SECOND_CHAIR_ABLETON_LIBRARIES;
   if (env !== undefined) return env.split(path.delimiter).filter(Boolean);
   const out: string[] = [];
   const list = (d: string) => { try { return fs.readdirSync(d); } catch { return []; } };

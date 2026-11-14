@@ -51,7 +51,6 @@ Live's script door allows these, as far as we know. They aren't built. Roughly i
 ### Bigger pieces
 
 - **A double-click installer** (no terminal), with Node bundled, and an update check.
-- **The real name.** CelloBridge and cello-live are working names. A rename touches the script's folder, the token folder and the entry in Claude.
 - **Voice.** A voice front end is planned, so you can talk while your hands are on the instrument. It isn't part of this beta.
 - **Chord Coach** as a proper optional add-on (it needs Max for Live).
 - **A Windows-and-Mac test run on clean machines** before each release.
