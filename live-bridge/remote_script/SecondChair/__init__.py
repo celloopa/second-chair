@@ -3458,7 +3458,7 @@ class SecondChair(ControlSurface):
 
     def _find_folder(self, folder):
         """Finds a sample folder in Places (then the User Library) by the longest tail of its path that matches.
-        "rondo/Samples/Kit" matches a Places folder "Samples" holding "Kit", or a Places folder "Kit" itself."""
+        "sam/Samples/Kit" matches a Places folder "Samples" holding "Kit", or a Places folder "Kit" itself."""
         parts = _split_path(folder)
         if not parts:
             raise ValueError("give the sample folder's name")

@@ -106,7 +106,7 @@ await expect("refused", "live_load_device", { track: 0 });
 await expect("refused", "live_build_drum_kit", { track: 2, folder: "Not In Places" }, "Add Folder");
 await expect("refused", "live_build_drum_kit", { track: 1, folder: "Fluffy Kit - finger drums" }, "audio track");
 await expect("refused", "live_build_drum_kit", { track: 0, folder: "Fluffy Kit - finger drums" }, "already has an instrument");
-const kit = await expect("ok", "live_build_drum_kit", { track: 2, folder: "C:\\Users\\rondo\\Documents\\Samples\\Fluffy Kit - finger drums",
+const kit = await expect("ok", "live_build_drum_kit", { track: 2, folder: "C:\\Users\\sam\\Documents\\Samples\\Fluffy Kit - finger drums",
   volumes_db: [0, -2, -8, -6], name: "Finger drums" }, "\"note_name\": \"G1\"");
 for (const s of ["1 kick.wav", "8 ride.wav", "\"choke_group\": 1", "-8.0 dB"]) if (!kit.includes(s)) { failed++; console.log(`!! kit result is missing ${s}`); }
 await expect("refused", "live_build_drum_kit", { track: 2, folder: "Fluffy Kit - finger drums" }, "already has an instrument"); // no second kit
@@ -122,7 +122,7 @@ await expect("refused", "live_swap_pad_sample", { track: 2, pad: 2, restore: tru
 const swap = await expect("ok", "live_swap_pad_sample", { track: 2, pad: "snare", sample: "Samples/Extra hits/Crunchy Snare.wav" }, "\"note_name\": \"C#1\"");
 for (const s of ["\"sample\": \"2 snare\"", "Crunchy Snare", "Simpler settings, volume and choke group", "restore: true"]) if (!swap.includes(s)) { failed++; console.log(`!! swap result is missing ${s}`); }
 // a disk path works too, and the hat's choke group stays
-const hat = await expect("ok", "live_swap_pad_sample", { track: 2, pad: 3, sample: "C:\\Users\\rondo\\Documents\\Samples\\Extra hits\\Crunchy Snare.wav" }, "Crunchy Snare");
+const hat = await expect("ok", "live_swap_pad_sample", { track: 2, pad: 3, sample: "C:\\Users\\sam\\Documents\\Samples\\Extra hits\\Crunchy Snare.wav" }, "Crunchy Snare");
 if (!hat.includes("3 closed hat")) { failed++; console.log("!! the hat swap should report the old closed hat"); }
 await expect("ok", "live_swap_pad_sample", { track: 2, pad: "C#1", restore: true }, "put back 2 snare");
 await expect("ok", "live_swap_pad_sample", { track: 2, restore: true }, "put back 3 closed hat");   // no pad: the last open swap

@@ -81,7 +81,7 @@ const SCALE_IDS = Object.keys(SCALES);
 const BROWSER_TREES = ["instruments", "drums", "audio_effects", "midi_effects", "sounds", "samples", "plugins", "max_for_live", "user_library", "places"];
 const DEVICE_TREES = ["audio_effects", "midi_effects", "instruments", "drums", "sounds", "plugins", "max_for_live", "user_library", "places"];
 /** A folder given as a disk path (C:\Users\...\Samples\Kit or /Users/.../Samples/Kit) becomes its last three names,
- *  "rondo/Samples/Kit". Live's browser knows names, not disk paths; the bridge matches the longest tail it finds in Places. */
+ *  "sam/Samples/Kit". Live's browser knows names, not disk paths; the bridge matches the longest tail it finds in Places. */
 function browserPath(p: string): string {
   const t = p.trim().replace(/[\\/]+$/, "");
   if (!/^([a-zA-Z]:[\\/]|[\\/]|~)/.test(t)) return t;
@@ -92,7 +92,7 @@ function browserPath(p: string): string {
 const SOUND_TREES = ["sounds", "drums", "instruments", "user_library", "places"];
 // Simpler's settings, shared by live_load_sample and live_set_simpler (bridge 0.8.0).
 const SIMPLER_SETTINGS = {
-  mode: { type: "string", enum: ["classic", "one-shot", "slice"], description: "Classic plays the sample across the keys; one-shot plays it once per hit; slice cuts it into pieces, one per key from C1 (the MPK's pad 1) up" },
+  mode: { type: "string", enum: ["classic", "one-shot", "slice"], description: "Classic plays the sample across the keys; one-shot plays it once per hit; slice cuts it into pieces, one per key from C1 (pad 1 on most pad controllers) up" },
   slice_by: { type: "string", enum: ["transient", "beat", "region", "manual"], description: "In slice mode: at each hit (transient), every beat_division, or into equal regions" },
   sensitivity: { type: "number", description: "For slice_by transient: 0-100, higher = more slices" },
   beat_division: { type: "string", enum: ["1/16", "1/16T", "1/8", "1/8T", "1/4", "1/4T", "1/2", "1/2T", "1 bar", "2 bars", "4 bars"], description: "For slice_by beat" },
@@ -262,7 +262,7 @@ function swapToRestore(track: number, pad: unknown): SwapEntry {
   return e;
 }
 
-const MISSING_DEVICE = "Chord Coach isn't reporting. In Live, drop Chord Coach (User Library > Presets > MIDI Effects > Max MIDI Effect) on the MIDI track you play, and arm the track or set Monitor to In so it hears the MPK.";
+const MISSING_DEVICE = "Chord Coach isn't reporting. In Live, drop Chord Coach (User Library > Presets > MIDI Effects > Max MIDI Effect) on the MIDI track you play, and arm the track or set Monitor to In so it hears the keyboard.";
 const withDeviceHint = (r: unknown) => ((r as { device?: string }).device === "missing" ? { ...(r as object), hint: MISSING_DEVICE } : r);
 /** Live's note names: 60 = C3. */
 const noteName = (n: number) => `${SHARPS[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;

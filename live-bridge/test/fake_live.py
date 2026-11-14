@@ -403,7 +403,7 @@ def folder(name, *kids): return Item(name, kids, loadable=False)
 def dev(name, kind, *presets): return Item(name, presets, device=True, kind=kind)
 
 KIT_NAMES = ["1 kick.wav", "2 snare.wav", "3 closed hat.wav", "4 open hat.wav", "5 clap.wav", "6 low tom.wav", "7 high tom.wav", "8 ride.wav"]
-SAMPLES_DIR = "C:\\Users\\rondo\\Documents\\Samples"
+SAMPLES_DIR = "C:\\Users\\sam\\Documents\\Samples"
 KIT_FILES = []
 for n in KIT_NAMES:
     f = SAMPLES_DIR + "\\Fluffy Kit - finger drums\\" + n
