@@ -82,20 +82,36 @@ The profile is one Markdown file on the user's computer, `SecondChair/my-studio.
 2. Fill in what the survey already told you. Don't ask about these:
    - Live's edition and version, and the User Library
    - the sample folders under Places
-   - the full plugin list
+   - the full plugin list (it goes in the plugin guide, phase 4b)
 3. Ask the rest together, in one or two rounds. The survey's last section lists them: name, experience, how they like to be taught, what they want help with, whether to suggest musical ideas, controller, audio interface and inputs, instruments and mics, the plugins they use most, and anything about how they see or hear.
 4. If no sample folders are under Places, ask where the samples are, and tell the user how to add the folder: drag it from Explorer or Finder into the left side of Live's browser, under Places. The tools can only load from folders that are there. You can't do this step for them.
 5. With Live open, call `live_status` and add what you can see: the tracks' input names often name the audio interface. Mark anything you inferred as "(seen in Live, not confirmed)".
-6. Write the profile in the outline's shape. Keep the `- **Name:** ...` line: the tools take the user's name from it. List the plugins in groups (instruments, effects, mixing and mastering), with a note on the ones the user said they use most.
+6. Write the profile in the outline's shape. Keep the `- **Name:** ...` line: the tools take the user's name from it. Under plugins, name only the ones the user said they use most, and what for. The full list goes in the plugin guide.
 7. **Stop.** Show the whole profile and ask: "Save this?" On yes, save it with `my_studio` (pass the whole text). Saving keeps the previous version next to it.
 
 If the `my_studio` tool isn't available in your app, write the same text to `SecondChair/my-studio.md` in the user's home folder, after the same "Save this?".
+
+## Phase 4b: the plugin guide
+
+The plugin guide is a second file, `SecondChair/my-plugins.md`. It has one line per plugin the user owns: what it is, and what it's good for. The assistant reads it before it recommends a plugin, so it recommends what the user has.
+
+1. Call `my_plugins` with no arguments. If a guide is already there, ask whether to refresh it. If not, it returns the outline.
+2. Take the plugin names from the survey. Write one line per plugin, in the outline's groups (instruments, effects, mixing and mastering):
+   - what it is, in one sentence
+   - two or three jobs it's good for
+   - `(unconfirmed)` at the end
+3. **Write only what you know about that plugin.** A plugin you don't recognise goes under "Not sure what these are", by name only. Don't guess from the name.
+4. Put the plugins the user said they use most first in their group.
+5. **Stop.** Tell the user how many plugins you described and how many you didn't know. Show the guide, or the first 20 lines if it's long, and ask: "Anything wrong here? Save it?" Fix what they correct, and take `(unconfirmed)` off the lines they checked.
+6. On yes, save it with `my_plugins` (pass the whole text).
+
+If the `my_plugins` tool isn't available in your app, write the same text to `SecondChair/my-plugins.md` in the user's home folder, after the same question.
 
 ## Phase 5: permissions, so it isn't in the way
 
 Explain these, and let the user choose:
 
-- **Tool prompts.** The app asks before it first uses each tool. Tools that only read (`live_status`, `live_get_levels`, `live_get_track`, `live_get_device`, `my_studio`, `studio_guide`, `audio_analyze`, the `theory_` tools) are safe to "always allow". Tools that change the set are worth seeing each time at first.
+- **Tool prompts.** The app asks before it first uses each tool. Tools that only read (`live_status`, `live_get_levels`, `live_get_track`, `live_get_device`, `my_studio`, `my_plugins`, `studio_guide`, `audio_analyze`, the `theory_` tools) are safe to "always allow". Tools that change the set are worth seeing each time at first.
 - **Seeing Live.** `live_screenshot` captures Live's own windows only, never the rest of the screen.
 - **Computer use** (the app clicking for the user) is optional and off unless they turn it on. `docs/needs-your-hands.md` says what it's for and its rules.
 - **The skill** is optional: the tools carry the same guide. The installer made `dist/second-chair-skill.zip` for uploading in the Claude desktop app (Settings > Capabilities > Skills).
@@ -113,6 +129,7 @@ Explain these, and let the user choose:
 
 - The check ends with `READY`.
 - `my_studio` returns a profile with the user's name in it.
+- `my_plugins` returns the plugin guide.
 - `live_status` returns the user's set.
 - The user knows where the guides are and how to report a problem.
 

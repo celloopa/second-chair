@@ -16,7 +16,7 @@ import { openSet } from "./liveset.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
-import { readProfile, profileName, personalize, writeProfile, profilePath, QUESTIONS } from "./profile.ts";
+import { readProfile, profileName, personalize, writeProfile, profilePath, QUESTIONS, readPlugins, writePlugins, findPlugins, pluginsPath, PLUGIN_OUTLINE } from "./profile.ts";
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
@@ -291,7 +291,8 @@ const tools: Tool[] = [
       const who = profileName();
       const studio = readProfile() ? { studio_profile: who ? `yes (${who})` : "yes" } : { studio_profile: "none yet: call my_studio" };
       const named = (set as { warning?: string }).warning ? { ...set, warning: personalize((set as { warning: string }).warning, who) } : set;
-      return { ...(ping as object), ...versions, ...studio, set: named, session: await bridge("get_session") };
+      const guide = { plugin_guide: readPlugins() ? "yes: call my_plugins before recommending a plugin" : "none yet: call my_plugins" };
+      return { ...(ping as object), ...versions, ...studio, ...guide, set: named, session: await bridge("get_session") };
     } },
   { name: "live_get_track", description: "One track in detail, including which clip slots hold clips. Tracks are numbered from 0.",
     inputSchema: obj({ track: int("Track index from 0") }, ["track"]), run: (a) => bridge("get_track", a) },
@@ -780,6 +781,18 @@ const tools: Tool[] = [
       return { profile: null, file: profilePath(), questions: QUESTIONS,
         note: "No studio profile yet. Ask the user these questions a few at a time (not all at once, and not before helping with what they asked), then save their answers with my_studio text. Don't ask what the computer can tell you: the installer's --survey mode (install.ps1 or install.sh at the top of the tools' folder) lists the Live version, the sample folders and the plugins, and changes nothing." };
     } },
+  { name: "my_plugins", description: "The user's plugin guide: one line per plugin they own, saying what it is and what it's good for. Call it before you recommend a plugin or an effect for a job, so you recommend what the user has; find narrows it to the lines about one job or plugin (\"compressor\", \"reverb vocal\", \"Ozone\"). Live's own devices are always there too. If there is no guide yet, this returns the outline and how to write it. Save with text (the whole guide as Markdown): write each line from what you know about that plugin, mark it (unconfirmed) until the user has checked it, put plugins you don't know under \"Not sure what these are\", and save only when the user agrees. Saving keeps the previous version next to it. Works without Live.",
+    inputSchema: obj({ text: { type: "string", description: "The whole plugin guide as Markdown, to save. Leave out to read" },
+      find: { type: "string", description: "Words to look for, e.g. \"compressor\" or \"reverb vocal\". Returns only the matching lines" } }),
+    run: (a) => {
+      if (a.text !== undefined) return { saved: writePlugins(String(a.text)), note: "Saved." };
+      const guide = readPlugins();
+      if (!guide) return { guide: null, file: pluginsPath(), outline: PLUGIN_OUTLINE,
+        note: "No plugin guide yet. Get the plugin names from the installer's --survey mode (install.ps1 or install.sh at the top of the tools' folder; it changes nothing). Write one line per plugin in the outline's shape, from what you know about that plugin: what it is, and two or three jobs it's good for. Mark every line (unconfirmed). Don't invent: a plugin you don't know goes under \"Not sure what these are\". Show the user the guide, fix what they correct, and save it with my_plugins text when they agree." };
+      if (a.find === undefined) return { mcpContent: [{ type: "text", text: guide }] };
+      const hits = findPlugins(guide, String(a.find));
+      return { mcpContent: [{ type: "text", text: hits || `Nothing in the plugin guide matches "${String(a.find)}". Call my_plugins with no arguments to read all of it. Live's own devices may do the job.` }] };
+    } },
 
   // --- seeing Live ---
   { name: "live_screenshot", description: "Take a picture of Ableton Live's window so you can see what the user sees: the set, a device, a plugin window, Settings. Only Live's own windows, never the rest of the screen. Works when other windows cover Live, not when it's minimised. windows: \"all\" adds Live's open plugin and device windows. Changes nothing.",
@@ -832,7 +845,7 @@ async function handle(msg: any, send: Send) {
         protocolVersion: SUPPORTED.includes(want) ? want : SUPPORTED[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "second-chair", version: VERSION },
-        instructions: personalize("Controls the user's Ableton Live 12 set through the SecondChair Remote Script. Call live_status first; if its set has a warning (an empty Untitled set), tell the user and ask before changing anything. Tracks, slots and scenes are numbered from 0. Writes never overwrite clips. To take back a change these tools made, use live_revert (it only touches the bridge's own changes); live_undo is Live's global undo and can take back the user's edits. theory_* tools work without Live. Read the user's studio profile with my_studio once per session: it says who they are and what's in their studio. For how to work with them, read studio_guide (unless you have the second-chair skill). \"Show me <chord> (on the keys)\" means live_show_on_keys: it only lights Chord Coach's display, so call it straight away and don't write a clip. \"What am I playing\" means live_what_am_i_playing. To see Live (\"look at my set\", \"what's on screen\"), use live_screenshot. For a sound by description (\"a warm pad\"), call live_find_sound, show the user the numbered shortlist, and load their pick with live_load_sound; to try picks one by one on the keys, use live_audition. Change routing or sidechains (live_set_routing) only when the user asks. To chop a sample, live_load_sample puts an audio file or clip into Simpler (mode slice puts the slices on the pads). Delete a track (live_delete_track) only when the user asks for that track to go. Replace a pad's sample (live_swap_pad_sample) only when the user asks for that swap. Only write clips or change tempo, scale or tracks when the user asks for that, or while the user has switched on demo mode (see studio_guide). If a tool says Live or the token can't be reached, tell the user in one line; don't search the disk for installers."),
+        instructions: personalize("Controls the user's Ableton Live 12 set through the SecondChair Remote Script. Call live_status first; if its set has a warning (an empty Untitled set), tell the user and ask before changing anything. Tracks, slots and scenes are numbered from 0. Writes never overwrite clips. To take back a change these tools made, use live_revert (it only touches the bridge's own changes); live_undo is Live's global undo and can take back the user's edits. theory_* tools work without Live. Read the user's studio profile with my_studio once per session: it says who they are and what's in their studio. Before you recommend a plugin or an effect for a job, call my_plugins (find narrows it), so you recommend what the user owns; say when a line is unconfirmed. For how to work with them, read studio_guide (unless you have the second-chair skill). \"Show me <chord> (on the keys)\" means live_show_on_keys: it only lights Chord Coach's display, so call it straight away and don't write a clip. \"What am I playing\" means live_what_am_i_playing. To see Live (\"look at my set\", \"what's on screen\"), use live_screenshot. For a sound by description (\"a warm pad\"), call live_find_sound, show the user the numbered shortlist, and load their pick with live_load_sound; to try picks one by one on the keys, use live_audition. Change routing or sidechains (live_set_routing) only when the user asks. To chop a sample, live_load_sample puts an audio file or clip into Simpler (mode slice puts the slices on the pads). Delete a track (live_delete_track) only when the user asks for that track to go. Replace a pad's sample (live_swap_pad_sample) only when the user asks for that swap. Only write clips or change tempo, scale or tracks when the user asks for that, or while the user has switched on demo mode (see studio_guide). If a tool says Live or the token can't be reached, tell the user in one line; don't search the disk for installers."),
       } });
     }
     if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });

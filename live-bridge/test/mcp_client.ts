@@ -9,7 +9,7 @@ import fs from "node:fs";
 const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.pid}.md`);
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
-  env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "being-dumb* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
+  env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "being-dumb* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
     SECOND_CHAIR_STATE_DIR: path.join(os.tmpdir(), `second-chair-test-${process.pid}`) } });
 let buf = ""; const waiting = new Map<number, (m: any) => void>();
 server.stdout.on("data", (c) => {
@@ -484,6 +484,18 @@ await expect("ok", "my_studio", {}, "49-key");
 const listed2 = (await rpc("tools/list")).result.tools as { name: string; description: string }[];
 if (!listed2.find((t) => t.name === "live_delete_track")!.description.includes("Sam")) { failed++; console.log("!! with a profile the tools should use the user's name"); }
 await expect("ok", "studio_guide", { section: "my studio" }, "49-key");
+
+// The plugin guide: none at first, the outline comes back; once saved, find returns only the lines for a job.
+const noGuide = js(await expect("ok", "my_plugins", {}, "outline"));
+if (noGuide.guide !== null || !String(noGuide.outline).includes("Not sure what these are")) { failed++; console.log("!! with no plugin guide, my_plugins should give the outline"); }
+await expect("refused", "my_plugins", { text: "hi" }, "too short");
+await expect("ok", "my_plugins", { text: "# My plugins\n\n## Effects\n\n- **Valhalla Room** (VST3): a reverb. Good for: vocals, drums. (unconfirmed)\n- **Kickstart 2** (VST3): a volume ducker. Good for: sidechain pumping. (unconfirmed)\n\n## Mixing and mastering\n\n- **Ozone 11** (VST3): a mastering suite. Good for: loudness, tone. (unconfirmed)\n" }, "saved");
+const found = await expect("ok", "my_plugins", { find: "reverb" }, "Valhalla Room");
+if (found.includes("Kickstart") || found.includes("Ozone")) { failed++; console.log("!! my_plugins find should return only the matching lines"); }
+await expect("ok", "my_plugins", { find: "mastering" }, "Ozone 11");
+await expect("ok", "my_plugins", { find: "granular" }, "Nothing in the plugin guide matches");
+await expect("ok", "my_plugins", {}, "Kickstart 2");
+if (!js(await expect("ok", "live_status", {}, "plugin_guide")).plugin_guide.startsWith("yes")) { failed++; console.log("!! live_status should say the plugin guide exists"); }
 if (!js(await expect("ok", "live_status", {}, "studio_profile")).studio_profile.includes("Sam")) { failed++; console.log("!! live_status should say the profile exists"); }
 await expect("refused", "live_delete_track", { track: 0, name: "Wrong" }, "nothing was deleted");
 fs.rmSync(STUDIO_FILE, { force: true }); fs.rmSync(STUDIO_FILE.replace(/\.md$/, "") + ".previous.md", { force: true });

@@ -232,7 +232,9 @@ Tools: `live_revert`, `live_undo`.
 - **Your profile** is one text file, `SecondChair/my-studio.md` in your home folder: your name, how you like to be taught, gear, folders, plugins, and fixes for your machine. Say "update my studio profile: I got a new interface" and Claude rewrites it and keeps the previous version.
 - **The guide** teaches Claude how to help: which tool fits which request, the safety rules, and six playbooks (starting a session, sound design, mixing, mastering, arrangement, recording).
 
-Tools: `my_studio`, `studio_guide`.
+- **Your plugin guide** is a second text file, `SecondChair/my-plugins.md`: one line per plugin you own, saying what it is and what it's good for. Ask "which of my plugins should I use for a wide chorus?" and Claude reads the guide first, so it recommends what you have. Lines Claude wrote and you haven't checked say "(unconfirmed)". Say "update my plugin guide" after you install something new.
+
+Tools: `my_studio`, `my_plugins`, `studio_guide`.
 
 ## 14. Demo mode
 
@@ -240,7 +242,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-60 tools. "Reads" change nothing.
+61 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
@@ -254,7 +256,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 | MIDI | `live_write_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
 | Undo | `live_revert`, `live_undo` |
-| You and the guide | `my_studio`, `studio_guide` |
+| You and the guide | `my_studio`, `my_plugins`, `studio_guide` |
 | Chord Coach (optional device) | `live_show_on_keys`, `live_what_am_i_playing` |
 
 How each one works inside is in [live-bridge/README.md](../live-bridge/README.md).

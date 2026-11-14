@@ -17,6 +17,7 @@ With a song open in Live:
 - "Look at the devices on my vocal track and explain what each one is doing."
 - "Set up a reverb on a return track and send the vocals to it."
 - "Find me a warm pad."
+- "Which of my plugins should I use to tame this vocal?"
 - "Fade the pad in from bar 9 to bar 17."
 - "Take that back."
 
@@ -40,7 +41,7 @@ Your agent then does five things, and asks before it changes anything:
 1. **Looks first.** A survey that changes nothing: your system, your Live edition and version, your User Library, the sample folders in Live's browser, and every plugin Live has scanned.
 2. **Installs,** after showing you what it would change.
 3. **Walks you through two clicks in Live** and one restart of your AI app.
-4. **Writes your studio profile.** It fills in what the survey found and asks you the rest in one or two rounds: your name, your gear, how you like to be taught. You see the profile before it's saved.
+4. **Writes your studio profile and your plugin guide.** It fills in what the survey found and asks you the rest in one or two rounds: your name, your gear, how you like to be taught. The plugin guide gets one line per plugin you own: what it is and what it's good for. You see both before they're saved.
 5. **Runs a first check with you** in a song you know.
 
 The restart in step 3 ends that chat. Start a new one in the same folder and say "Continue the Second Chair setup".
@@ -61,9 +62,11 @@ Two parts, and one installer for both:
 | Part | What it is | Where it runs |
 |---|---|---|
 | **SecondChair**, the script | A small script that Live loads as a "Control Surface". It carries out a fixed list of actions. | Inside Live |
-| **second-chair**, the tools | 60 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
+| **second-chair**, the tools | 61 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
 
 Your **studio profile** is one file, `SecondChair/my-studio.md` in your home folder. It holds your name, your gear, your plugins and how you like to be taught, so the agent knows your setup in every session. You can read and edit it yourself.
+
+Your **plugin guide** is a second file, `SecondChair/my-plugins.md`: one line per plugin you own, saying what it is and what it's good for. The agent reads it before it recommends a plugin, so it recommends what you have. Lines the agent wrote and you haven't checked are marked "(unconfirmed)".
 
 ## The rules it works by
 

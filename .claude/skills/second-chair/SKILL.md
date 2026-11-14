@@ -99,6 +99,7 @@ Every studio is different, so the user's own details live in their **studio prof
 - **Read it at the start of a session:** the `my_studio` tool returns it (or read the file). It holds the user's name, how they like to be taught, their controller, instruments, sample folders and plugins, and fixes that are about their machine.
 - **If there isn't one yet,** `my_studio` returns the questions to ask. Ask them a few at a time, then save the answers with `my_studio` (`text`). Don't guess gear or folders.
 - **Keep it current:** when the user tells you something lasting about their setup ("my mic is on input 2"), offer to add it.
+- **Recommending a plugin:** call `my_plugins` first (`find` narrows it, e.g. "compressor" or "reverb vocal"). It's the user's plugin guide, `~/SecondChair/my-plugins.md`: one line per plugin they own, what it is and what it's good for. Recommend from it and from Live's own devices, never a plugin they don't have. Say when a line is "(unconfirmed)". If there's no guide yet, `my_plugins` says how to write one; offer to, and save it only when the user agrees.
 - **True in every studio:**
   - Live calls MIDI note 60 "C3". A Drum Rack's first pad is C1 (MIDI 36).
   - A sample folder must be under **Places** in Live's browser before the bridge can load from it.

@@ -49,6 +49,61 @@ export const QUESTIONS = `# My studio
 - (Anything that has gone wrong before and how you fixed it)
 `;
 
+// The plugin guide ("my plugins"): one line per plugin the user owns, saying what it is and what it's good for.
+// It sits next to the profile in its own file, because it can be long and is only needed for plugin questions.
+export const pluginsPath = () => process.env.SECOND_CHAIR_PLUGINS_FILE || path.join(path.dirname(profilePath()), "my-plugins.md");
+
+export function readPlugins(): string | null {
+  try { const t = fs.readFileSync(pluginsPath(), "utf8").trim(); return t || null; } catch { return null; }
+}
+
+export const PLUGIN_OUTLINE = `# My plugins
+
+One line per plugin Live has scanned. "(unconfirmed)" means the assistant wrote the line from what it knows about
+the plugin, and the user hasn't checked it yet.
+
+## Instruments
+
+- **Plugin name** (VST3): what it is, in one sentence. Good for: two or three jobs. (unconfirmed)
+
+## Effects
+
+- **Plugin name** (VST3): what it is. Good for: ... (unconfirmed)
+
+## Mixing and mastering
+
+- **Plugin name** (VST3): what it is. Good for: ... (unconfirmed)
+
+## Not sure what these are
+
+- Plugin name (VST3)
+`;
+
+/** The headings and lines of the plugin guide that hold any of the words, so a question about one job reads a few lines. */
+export function findPlugins(text: string, words: string): string {
+  const want = words.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1);
+  const out: string[] = [];
+  let heading = "";
+  for (const line of text.split("\n")) {
+    if (/^#{1,6} /.test(line)) { heading = line; continue; }
+    if (!line.trim() || !want.some((w) => line.toLowerCase().includes(w) || heading.toLowerCase().includes(w))) continue;
+    if (heading && out[out.length - 1] !== heading && !out.includes(heading)) out.push("", heading, "");
+    out.push(line);
+  }
+  return out.join("\n").trim();
+}
+
+export function writePlugins(text: string): string {
+  const clean = String(text).replace(/\r\n/g, "\n").trim();
+  if (clean.length < 20) throw new Error("That's too short to be a plugin guide.");
+  if (clean.length > 150_000) throw new Error("A plugin guide is at most 150,000 characters.");
+  const file = pluginsPath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  if (fs.existsSync(file)) fs.copyFileSync(file, file.replace(/\.md$/, "") + ".previous.md"); // one step back
+  fs.writeFileSync(file, clean + "\n", "utf8");
+  return file;
+}
+
 export function writeProfile(text: string): string {
   const clean = String(text).replace(/\r\n/g, "\n").trim();
   if (clean.length < 20) throw new Error("That's too short to be a studio profile.");
