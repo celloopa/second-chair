@@ -20,7 +20,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.9.8";
+const VERSION = "0.9.9";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -367,6 +367,9 @@ const tools: Tool[] = [
   { name: "live_copy_clip", description: "Copy a Session clip into an empty slot (same track or another of the same kind). Revertible with live_revert.",
     inputSchema: obj({ track: int("From track"), slot: int("From slot"), to_track: int("To track"), to_slot: int("To slot (must be empty)") }, ["track", "slot", "to_track", "to_slot"]),
     run: (a) => bridge("copy_clip", a) },
+  { name: "live_delete_clip", description: "Delete one Session clip (a clip in a slot), only when the user asks for that clip to go. Give the track, the slot and the clip's exact name (live_get_track shows it; an unnamed clip takes \"\"): the name must match, or nothing changes. Not revertible with live_revert: live_undo straight away brings it back. For a clip the tools just wrote, use live_revert instead. Timeline clips: live_arrangement_clip.",
+    inputSchema: obj({ track: int("Track index from 0"), slot: int("Slot index from 0"), name: { type: "string", description: "The clip's exact name, as a check" } }, ["track", "slot", "name"]),
+    run: (a) => bridge("delete_clip", a) },
   { name: "live_arrangement_clip", description: "Move or delete one Arrangement clip, only when the user asks. Name the clip and the bar it starts at (live_get_arrangement shows both); both must match. move: to_bar (and to_track), never covering clips; revertible with live_revert. delete: not revertible with live_revert, live_undo straight away brings it back. Live has no trim or split for scripts.",
     inputSchema: obj({ action: { type: "string", enum: ["move", "delete"] }, track: int("Track index from 0"), bar: { type: "number", description: "The bar the clip starts at" },
       name: { type: "string", description: "The clip's name" }, to_bar: { type: "number", description: "For move: the new start bar" }, to_track: int("For move: another track (optional)") },
@@ -435,6 +438,10 @@ const tools: Tool[] = [
     inputSchema: obj({ index: int("Scene index from 0") }, ["index"]), run: (a) => bridge("fire_scene", a) },
   { name: "live_arm_track", description: "Arm or disarm a track for recording / playing through.",
     inputSchema: obj({ track: int("Track index"), armed: { type: "boolean" } }, ["track"]), run: (a) => bridge("arm_track", a) },
+  { name: "live_mute_track", description: "Mute or unmute a track, or switch its Solo on or off (for an A/B, or to hear or bounce one part alone). Give mute, solo or both. Works on regular and return tracks. Solo set here doesn't unsolo other tracks: the result lists any that are still soloed. Only when the user asks, or as a step of a job they asked for; put it back afterwards. Revertible.",
+    inputSchema: obj({ track: int("Track index from 0"), mute: { type: "boolean", description: "true mutes the track, false unmutes it" }, solo: { type: "boolean", description: "true solos the track, false unsolos it" } }, ["track"]), run: (a) => bridge("set_mute", a) },
+  { name: "live_create_scene", description: "Add empty scenes (rows of empty slots), for when every slot is full. index -1 (the default) adds them at the end; another index inserts there and moves later scenes down. Returns the new scene numbers, which are free slot numbers on every track. Not revertible by live_revert: use live_undo straight away.",
+    inputSchema: obj({ index: int("Where to add: -1 = at the end (default), or a scene index from 0"), count: int("How many, 1-16 (default 1)") }), run: (a) => bridge("create_scene", a) },
   { name: "live_select_track", description: "Select a track in Live so the user can see it.",
     inputSchema: obj({ track: int("Track index") }, ["track"]), run: (a) => bridge("select_track", a) },
   { name: "live_revert", description: "Take back the bridge's own last changes (tempo, scale, clips and notes it wrote, tracks it made, sounds and devices it loaded, knobs, routing, arm), newest first. Safer than live_undo: it never touches the user's own edits, and it stops without changing anything if the user changed that thing since. preview: true lists the recent changes and whether each can be reverted. skip: true drops the newest changes from the list without touching Live (after a stop, when the user wants to keep it). Loading tools say how many changes they made in revert_steps. The list only covers changes since Live started.",

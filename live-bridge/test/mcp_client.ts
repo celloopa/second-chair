@@ -485,6 +485,28 @@ const listed2 = (await rpc("tools/list")).result.tools as { name: string; descri
 if (!listed2.find((t) => t.name === "live_delete_track")!.description.includes("Sam")) { failed++; console.log("!! with a profile the tools should use the user's name"); }
 await expect("ok", "studio_guide", { section: "my studio" }, "49-key");
 
+// Mute, solo and new scenes (0.9.9)
+await expect("ok", "live_mute_track", { track: 1, mute: true }, "\"mute\": true");
+if (!js(await expect("ok", "live_status", {}, "bridge")).session.tracks[1].mute) { failed++; console.log("!! live_mute_track should mute the track"); }
+await expect("ok", "live_mute_track", { track: 0, solo: true }, "\"solo\": true");
+await expect("ok", "live_mute_track", { track: 1, solo: true }, "also_soloed");
+await expect("refused", "live_mute_track", { track: 1 }, "give mute, solo or both");
+await expect("refused", "live_mute_track", { track: 999, mute: true }, "doesn't exist");
+await expect("ok", "live_mute_track", { track: 1, mute: false, solo: false }, "\"mute\": false");
+await expect("ok", "live_mute_track", { track: 0, solo: false }, "\"solo\": false");
+const scn = js(await expect("ok", "live_create_scene", { count: 2 }, "new_scenes"));
+if (scn.new_scenes.length !== 2 || scn.new_scenes[1] !== scn.scenes - 1) { failed++; console.log("!! live_create_scene should add two scenes at the end"); }
+await expect("ok", "live_create_scene", { index: 0 }, "moved down by 1");
+await expect("refused", "live_create_scene", { count: 40 }, "count must be 1-16");
+
+// Deleting a Session clip (0.9.9): only with the clip's name
+const delT = js(await expect("ok", "live_create_midi_track", { name: "Delete test" }, "track")).track;
+await expect("ok", "live_write_clip", { track: delT, slot: 0, length_beats: 4, name: "Scratch idea", notes: [{ pitch: 60, start: 0, duration: 1 }] }, "notes_written");
+await expect("refused", "live_delete_clip", { track: delT, slot: 0, name: "Other clip" }, "so nothing was changed");
+await expect("refused", "live_delete_clip", { track: delT, slot: 1, name: "Scratch idea" }, "already empty");
+await expect("ok", "live_delete_clip", { track: delT, slot: 0, name: "scratch idea" }, "\"deleted\"");
+await expect("refused", "live_delete_clip", { track: delT, slot: 0, name: "Scratch idea" }, "already empty");
+
 // The plugin guide: none at first, the outline comes back; once saved, find returns only the lines for a job.
 const noGuide = js(await expect("ok", "my_plugins", {}, "outline"));
 if (noGuide.guide !== null || !String(noGuide.outline).includes("Not sure what these are")) { failed++; console.log("!! with no plugin guide, my_plugins should give the outline"); }

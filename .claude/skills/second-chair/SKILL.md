@@ -24,7 +24,7 @@ The user makes music in **Ableton Live 12** (12.3 or newer), on Windows or a Mac
 - **First, one question:** where to work. Default: a new empty set (File > New Live Set; `live_status` then shows the Untitled warning, which is fine in demo mode). Work in one of the user's songs only if the user names it.
 - **While on,** you drive: pick tempo, key and sounds, write clips, build kits, add effects, set routing, play, record into the Arrangement. Don't ask before each step. The mentor rule is paused: the ideas can be yours.
 - **Narrate as you go,** one short line per step ("Now a dusty Rhodes on track 2, chords in A minor"), so the friend can follow. Then play it (`live_fire_scene`, `live_transport`) so there's something to hear.
-- **Still on:** the bridge's limits (it never overwrites or deletes the user's clips), no deleting tracks the user made, nothing outside Live (no posting, no files outside the set). Use computer use only if the user says to and takes their hands off the mouse and keys.
+- **Still on:** the bridge's limits (it never overwrites the user's clips, and deletes one only when the user names it), no deleting tracks the user made, nothing outside Live (no posting, no files outside the set). Use computer use only if the user says to and takes their hands off the mouse and keys.
 - **When it ends:** list what you made, and offer two ways out: `live_revert` takes it all back, or the user saves it as a demo set. Demo ideas stay out of the user's songs unless the user chooses to bring one in.
 
 ## 2. Start of a session
@@ -61,6 +61,8 @@ Step-by-step best practices per kind of job, in `playbooks/` next to this file (
 | "Turn up the drive", "more reverb" | `live_get_device` first to read the exact knob names and settings, then `live_set_device_param` (`text` like "-6 dB", "35 %" or "1/4"). Synced rates (LFO Synced, delay times) count in odd orders inside Live, so always give them as `text` ("1/4", "2"), never `value`. Echo with Link on: the API only moves the side you set, so set L and R both. For plugins (VST/AU) use `percent` or `value`: their knobs refuse `text`. |
 | "Sidechain it to the kick", "duck the pad" | Only because they asked: `live_get_routing` on the device to see the choices, then `live_set_routing` with `source` (the drums track) and `channel` (e.g. "1 kick" for one Drum Rack chain, or "Post FX"). Track input/output: `io: "input"` or `"output"`. Works for Live's own Compressor, Glue Compressor, Gate and Auto Filter. Plugin sidechains (Kickstart 2 and other VST/AU) can't be reached by scripts: teach the user to set them by hand, or offer Live's Compressor instead. |
 | "Show me Dm7 (on the keys)" | `live_show_on_keys` right away. It only lights Chord Coach's display, so don't write a clip. |
+| "Mute the pad", "solo the vocal", "A/B the bells" | `live_mute_track` (`mute`, `solo` or both). Put it back afterwards, and say so. |
+| "Every slot is full", "I need an empty row" | `live_create_scene`. It returns the new, free slot numbers. |
 | "What am I playing?", "what chord is this?" | `live_what_am_i_playing`. |
 | "Write a beat / chords / a bassline" | `theory_*` for the notes, then `live_write_clip` into an **empty** slot of a MIDI track. |
 | "What chords are in E Dorian?" | `theory_key`. Theory tools work without Live. |
@@ -81,12 +83,13 @@ Step-by-step best practices per kind of job, in `playbooks/` next to this file (
 | "Is it loud enough", "why is my bounce quiet", "compare it with this song" | `audio_analyze` on the exported WAV (and a `reference`): loudness in LUFS, true peak, tone by band, stereo. Follow `playbooks/mastering.md`. Works without Live. |
 | "Copy that loop to slot 3" | `live_copy_clip` into an empty slot. |
 | "Double the guitar", "rename the tracks" | `live_duplicate_track`, `live_rename` (track or scene). Only when the user asks. |
+| "Delete the clip called X in that slot" | `live_delete_clip` with the track, the slot and the clip's exact name, only when the user asks for that clip to go. `live_undo` straight away brings it back. |
 | "Delete that track" | `live_delete_track`, only when the user names the track to delete. Refuses tracks with clips. `live_undo` straight away brings it back. |
 | "Undo that" | `live_revert` (bridge 0.7.0): it takes back only the bridge's own changes, and stops if the user changed that thing since. Loading tools report `revert_steps`; pass that as `steps`. `preview: true` shows what it would revert. `live_undo` is Live's global Ctrl+Z: it can take back the user's own edits, so use it only straight after a tool call, or for a pad swap. |
 
 ## 4. Safety rules (built into the bridge)
 
-- It runs only a fixed list of actions, on 127.0.0.1, with a token. Nothing deletes tracks, clips or devices.
+- It runs only a fixed list of actions, on 127.0.0.1, with a token. Nothing deletes tracks, clips or devices by itself: each delete tool needs the user's ask and a name check.
 - Clips go only into empty slots on MIDI tracks.
 - Loads go only onto the named track. A second instrument on a track is refused, because Live would replace the first one.
 - **The one replacement:** `live_swap_pad_sample` replaces one pad's sample, only when the user asks for it. The old sample is saved in `~/SecondChair/pad-swaps.jsonl` first. In Live 12.4, Live rebuilds the pad, so its Simpler settings reset; volume and choke group are kept. Say this before swapping a pad the user has tuned by hand.

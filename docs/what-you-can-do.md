@@ -1,4 +1,4 @@
-# What you can do (up to 0.9.8)
+# What you can do (up to 0.9.9)
 
 Everything here works by asking Claude in plain words. You don't need the tool names; they're listed so you can see what's behind each request.
 
@@ -225,7 +225,9 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 
 Tools: `live_revert`, `live_undo`.
 
-**Proven.** Three things can't be reverted by `live_revert` and need Live's undo straight away: a recorded automation take, a deleted device, and a deleted timeline clip. Claude tells you when that's the case.
+To delete a Session clip, name it: "Delete the clip called Scratch idea on the pad track." Claude checks the name first (`live_delete_clip`).
+
+**Proven.** Three things can't be reverted by `live_revert` and need Live's undo straight away: a recorded automation take, a deleted device, and a deleted clip (Session or timeline). Claude tells you when that's the case.
 
 ## 13. Your studio profile and the guide
 
@@ -242,18 +244,18 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-61 tools. "Reads" change nothing.
+64 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
 | Reads | `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_clip_notes`, `live_get_device`, `live_get_routing`, `live_get_levels`, `live_read_knob`, `live_get_simpler`, `live_audio_clip_info`, `live_browse`, `live_find_sound`, `live_screenshot` |
-| Tracks | `live_create_midi_track`, `live_create_audio_track`, `live_create_return_track`, `live_duplicate_track`, `live_rename`, `live_delete_track`, `live_arm_track`, `live_select_track`, `live_set_monitoring` |
+| Tracks | `live_create_midi_track`, `live_create_audio_track`, `live_create_return_track`, `live_duplicate_track`, `live_rename`, `live_delete_track`, `live_arm_track`, `live_select_track`, `live_set_monitoring`, `live_mute_track` |
 | Devices | `live_load_device`, `live_set_device_param`, `live_move_device`, `live_delete_device`, `live_set_routing` |
 | Automation | `live_record_automation`, `live_automate` |
-| Timeline and transport | `live_place_clip`, `live_arrangement_clip`, `live_play_bars`, `live_transport`, `live_fire_clip`, `live_fire_scene`, `live_stop_track`, `live_set_tempo`, `live_set_scale` |
+| Timeline and transport | `live_place_clip`, `live_arrangement_clip`, `live_play_bars`, `live_transport`, `live_fire_clip`, `live_fire_scene`, `live_create_scene`, `live_stop_track`, `live_set_tempo`, `live_set_scale` |
 | Audio | `live_bounce_track`, `live_align_audio`, `live_set_audio_clip`, `audio_analyze` |
 | Sounds and samples | `live_load_sound`, `live_audition`, `live_build_drum_kit`, `live_swap_pad_sample`, `live_load_sample`, `live_set_simpler` |
-| MIDI | `live_write_clip`, `live_add_notes`, `live_copy_clip` |
+| MIDI | `live_write_clip`, `live_delete_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
 | Undo | `live_revert`, `live_undo` |
 | You and the guide | `my_studio`, `my_plugins`, `studio_guide` |

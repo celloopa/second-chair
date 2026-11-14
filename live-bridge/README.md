@@ -444,3 +444,13 @@ node test\mcp_client.ts       # in another, within 15 s (stops if it finds real 
 - **Steps 2 and 3:** done and verified in real Live on 2026-11-07. Dm7 lit on the device, a held C was named "C", and the octave follows the keyboard.
 - **Step 4:** a skill holding the user's setup.
 - **Step 5:** test HeyClicky's push-to-talk.
+
+## Mute, solo and new scenes (0.9.9)
+
+Asked for on 2026-11-14 by a music session that had to fall back to computer use for these.
+
+- **`set_mute`** `{track, mute?, solo?}` (MCP: `live_mute_track`): a track's Mute and Solo buttons, on regular and return tracks. Main has neither. Solo set through the API doesn't unsolo other tracks, so the result lists `also_soloed`. Revertible.
+- **`create_scene`** `{index?, count?}` (MCP: `live_create_scene`): adds 1 to 16 empty scenes, at the end by default. Returns the new scene numbers. Not revertible by `live_revert`; `live_undo` takes it back.
+- **Fixed:** `live_audition` "next" and `live_swap_pad_sample` crashed with `NameError: name 's' is not defined` when Live did something unexpected with a load (it added a device where it should have replaced one). The undo was written with a name that didn't exist. They now undo the load and say what happened.
+- **`delete_clip`** `{track, slot, name}` (MCP: `live_delete_clip`): deletes one Session clip. The user agreed to this on 2026-11-14, as a change to the "never deletes your clips" rule: only on the user's ask, the name must match, and a recording clip is refused. Not revertible by `live_revert`; `live_undo` brings it back.
+- **Still open from the same session:** saving the set, exporting, and timeouts right after Live's Export dialog closes.

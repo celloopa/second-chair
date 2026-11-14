@@ -30,7 +30,7 @@ from collections import deque
 import Live
 from _Framework.ControlSurface import ControlSurface
 
-VERSION = "0.9.8"
+VERSION = "0.9.9"
 HOST = "127.0.0.1"
 PORT = 9885
 OSC_IN_PORT = 9886    # Chord Coach device -> bridge
@@ -59,6 +59,7 @@ ACTIONS = (
     "record_automation", "read_knob", "play_range", "bounce_track",
     "create_audio_track", "create_return_track", "set_monitoring",
     "audio_clip_info", "align_audio",
+    "set_mute", "create_scene", "delete_clip",
 )
 # Actions that take several of Live's display ticks (browser loads finish on a later tick) get longer to answer.
 MONITOR_VALUES = {"in": 0, "auto": 1, "off": 2}  # Live's Track.monitoring_states
@@ -1686,6 +1687,54 @@ class SecondChair(ControlSurface):
                       [_Attrs(t, "track %d's Monitor switch" % int(track), {"current_monitoring_state": (old, int(t.current_monitoring_state))})])
         return {"track": int(track), "name": t.name, "was": MONITOR_NAMES.get(old, str(old)), "monitor": want}
 
+    def _a_set_mute(self, track, mute=None, solo=None):
+        """A track's Mute and Solo buttons (0.9.9). Works on regular and return tracks; Main has neither."""
+        if mute is None and solo is None:
+            raise ValueError("give mute, solo or both (true or false)")
+        t = self._track(track)
+        i = int(track)
+        if t == getattr(self.song(), "master_track", None) or not hasattr(t, "mute"):
+            raise ValueError("track %d (%s) has no Mute or Solo button" % (i, t.name))
+        changes = {}
+        for attr, want in (("mute", mute), ("solo", solo)):
+            if want is None:
+                continue
+            old = bool(getattr(t, attr))
+            setattr(t, attr, bool(want))
+            if old != bool(getattr(t, attr)):
+                changes[attr] = (old, bool(getattr(t, attr)))
+        if changes:
+            said = ", ".join("%s %s" % (k, "on" if v[1] else "off") for k, v in sorted(changes.items()))
+            self._log("set track %d's %s" % (i, said), [_Attrs(t, "track %d's Mute and Solo buttons" % i, changes)])
+        out = {"track": i, "name": t.name, "mute": bool(t.mute), "solo": bool(t.solo), "changed": sorted(changes)}
+        others = [x.name for x in self._all_tracks() if x != t and _safe(lambda x=x: bool(x.solo), False)]
+        if others:
+            out["also_soloed"] = others
+        return out
+
+    def _a_create_scene(self, index=-1, count=1):
+        """Adds empty scenes (rows of empty slots) (0.9.9). index -1 puts them at the end."""
+        s = self.song()
+        n = int(count)
+        if not (1 <= n <= 16):
+            raise ValueError("count must be 1-16")
+        total = len(s.scenes)
+        i = int(index)
+        if i < -1 or i > total:
+            raise ValueError("index must be -1 (at the end) or 0-%d" % total)
+        made = []
+        for k in range(n):
+            at = -1 if i == -1 else i + k
+            s.create_scene(at)
+            made.append(len(s.scenes) - 1 if at == -1 else at)
+        self._log("added %d empty scene%s" % (n, "" if n == 1 else "s"),
+                  [_Fixed("the new scene%s" % ("" if n == 1 else "s"), "use live_undo straight away, or delete the scene in Live")])
+        out = {"new_scenes": made, "scenes": len(s.scenes),
+               "note": "Each new scene is an empty row: these slot numbers are free on every track."}
+        if i != -1:
+            out["moved"] = "Scenes and slots that were at %d or later moved down by %d." % (i, n)
+        return out
+
     def _a_select_track(self, track):
         self.song().view.selected_track = self._track(track)
         return {"selected_track": int(track)}
@@ -2096,6 +2145,25 @@ class SecondChair(ControlSurface):
         self._log("deleted the Arrangement clip %r at bar %g on track %d" % (info["name"], float(bar), i),
                   [_Fixed("deleting the clip %r" % info["name"], "use live_undo straight away to bring it back")])
         return {"track": i, "deleted": info}
+
+    def _a_delete_clip(self, track, slot, name):
+        """Deletes one Session clip, only when the user asks for that clip to go (0.9.9). Its name must match."""
+        i, j = int(track), int(slot)
+        cs = self._slot(i, j)
+        if not cs.has_clip:
+            raise ValueError("track %d, slot %d is already empty" % (i, j))
+        c = cs.clip
+        have = str(c.name)
+        if have.strip().lower() != str(name).strip().lower():
+            raise ValueError("the clip in track %d, slot %d is %r, not %r, so nothing was changed" % (i, j, have, name))
+        if _safe(lambda: bool(c.is_recording), False):
+            raise ValueError("that clip is recording. Stop the recording first")
+        info = {"name": have, "kind": "midi" if _safe(lambda: bool(c.is_midi_clip), True) else "audio",
+                "length_beats": _safe(lambda: float(c.length), None)}
+        cs.delete_clip()
+        self._log("deleted the Session clip %r in track %d, slot %d" % (have, i, j),
+                  [_Fixed("deleting the clip %r" % have, "use live_undo straight away to bring it back")])
+        return {"track": i, "slot": j, "deleted": info}
 
     # ---- automation shapes (0.9.4): one engine for recorded and Session-clip automation ----
     def _rate_beats(self, rate):
@@ -3443,11 +3511,11 @@ class SecondChair(ControlSurface):
         others = [d for d in before if d != inst]
         if any(d == inst for d in now):
             if len(now) != len(before):
-                s.undo()
+                self.song().undo()
                 raise ValueError("Live added %r instead of replacing %s, so the load was undone" % ("/".join(ipath), expected))
             raise ValueError("Live didn't replace %s with %r" % (expected, "/".join(ipath)))
         if not all(any(d == n for n in now) for d in others) or len(now) != len(before):
-            s.undo()
+            self.song().undo()
             raise ValueError("loading %r changed more than the instrument, so it was undone" % "/".join(ipath))
         new_inst = _instrument_of(t)
         self._log("swapped %s for %s on track %d" % (expected, ipath[-1], track),
@@ -3628,10 +3696,10 @@ class SecondChair(ControlSurface):
             pass
         chains = list(p.chains)
         if self._rack_snapshot(rack, p.note) != before:
-            s.undo()
+            self.song().undo()
             raise ValueError("Live changed another pad too, so the swap was undone")
         if len(chains) != 1:
-            s.undo()
+            self.song().undo()
             raise ValueError("Live changed the pad's layout, so the swap was undone")
         new_chain = chains[0]
         kept_simpler = any(d == simpler for d in new_chain.devices)

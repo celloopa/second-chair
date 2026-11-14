@@ -153,6 +153,11 @@ class Song:
         self.undo_count = 0
         self.stuck_selection = False  # fake-only: the next browser load lands on track 0, as in real Live on 2026-11-12
         self.after_selected = False  # the fake-only action "fake_after_selected" turns on real Live's placement
+    def create_scene(self, index):  # like Live: -1 adds at the end, and every track gets an empty slot in that row
+        at = len(self.scenes) if index == -1 else index
+        self.scenes.insert(at, types.SimpleNamespace(name="", fire=lambda: None))
+        for t in self.tracks:
+            t.clip_slots.insert(min(at, len(t.clip_slots)) if index != -1 else len(t.clip_slots), Slot())
     record_mode, back_to_arranger, session_automation_record = False, False, False
     punch_in, punch_out = False, False
     @property
