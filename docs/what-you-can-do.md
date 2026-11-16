@@ -1,4 +1,4 @@
-# What you can do (up to 0.9.9)
+# What you can do (up to 0.10.0)
 
 Everything here works by asking Claude in plain words. You don't need the tool names; they're listed so you can see what's behind each request.
 
@@ -49,6 +49,7 @@ Tools: `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_device
 | Say | What happens |
 |---|---|
 | "Play it and check my levels." | Each track's and Main's peak as a word (silent, low, healthy, hot, near the top) and a rough dB. |
+| "How loud is the bass right now, and where does its energy sit?" | With the optional Second Chair Ears device on that track: its peak and average level in dB, and 8 rough bands from sub to air, measured from the audio. No export needed. It reads before the track's fader. |
 | "Turn the bass down 3 dB." / "Pan the guitar a bit left." | Sets the track's Volume, Pan or a Send. Any setting can be given in Live's own units ("-6 dB", "1.2 kHz", "35 %"). |
 | "Put an EQ on the vocal with a low cut around 100 Hz." | Loads the device and sets the knobs, and tells you what it set. |
 | "Duck the bass when the kick hits." | Loads Live's Compressor on the bass and sets its sidechain to the kick, even one pad inside a Drum Rack. |
@@ -56,7 +57,9 @@ Tools: `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_device
 | "The three vocal tracks each have their own reverb. Tidy that up." | One reverb on a return track, sends from each track; or a bus track for all three (see section 6). |
 | "Walk me through a mix check." | Claude follows the mixing playbook: gain staging first, then EQ, compression, space, with you listening at each step. |
 
-Tools: `live_get_levels`, `live_set_device_param`, `live_get_device`, `live_load_device`, `live_move_device`, `live_set_routing`, `live_create_return_track`.
+Second Chair Ears is a Max for Live audio effect, so it needs Live Suite or the Max for Live add-on. Install it with the installer's `--ears` option, then drop it on a track from User Library > Presets > Audio Effects > Max Audio Effect. It never changes the sound.
+
+Tools: `live_get_levels`, `live_listen`, `live_set_device_param`, `live_get_device`, `live_load_device`, `live_move_device`, `live_set_routing`, `live_create_return_track`.
 
 **Partly proven.** Knobs, loading devices and Compressor sidechains are proven. The dB figure from the meters is an estimate (the word is the safer read). Meters on return tracks and Main haven't been checked in real Live.
 
@@ -244,11 +247,11 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-64 tools. "Reads" change nothing.
+65 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
-| Reads | `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_clip_notes`, `live_get_device`, `live_get_routing`, `live_get_levels`, `live_read_knob`, `live_get_simpler`, `live_audio_clip_info`, `live_browse`, `live_find_sound`, `live_screenshot` |
+| Reads | `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_clip_notes`, `live_get_device`, `live_get_routing`, `live_get_levels`, `live_listen`, `live_read_knob`, `live_get_simpler`, `live_audio_clip_info`, `live_browse`, `live_find_sound`, `live_screenshot` |
 | Tracks | `live_create_midi_track`, `live_create_audio_track`, `live_create_return_track`, `live_duplicate_track`, `live_rename`, `live_delete_track`, `live_arm_track`, `live_select_track`, `live_set_monitoring`, `live_mute_track` |
 | Devices | `live_load_device`, `live_set_device_param`, `live_move_device`, `live_delete_device`, `live_set_routing` |
 | Automation | `live_record_automation`, `live_automate` |

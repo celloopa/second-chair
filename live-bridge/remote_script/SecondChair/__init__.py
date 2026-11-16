@@ -30,12 +30,18 @@ from collections import deque
 import Live
 from _Framework.ControlSurface import ControlSurface
 
-VERSION = "0.9.9"
+VERSION = "0.10.0"
 HOST = "127.0.0.1"
 PORT = 9885
 OSC_IN_PORT = 9886    # Chord Coach device -> bridge
 OSC_OUT_PORT = 9887   # bridge -> Chord Coach device
+EARS_PORT = 9888      # Second Chair Ears devices -> bridge (levels only; nothing is sent back)
 DEVICE_ALIVE_MS = 6000
+EARS_ALIVE_MS = 3000  # an Ears device reports about 4 times a second; quieter than this and it counts as gone
+EARS_WINDOW_MS = 5000
+EARS_BANDS = 8
+EARS_FLOOR_DB = -120.0
+MAX_EARS = 64
 EVENT_WINDOW_MS = 30000
 MAX_EVENTS = 256
 MAX_SHOW_NOTES = 25
@@ -59,7 +65,7 @@ ACTIONS = (
     "record_automation", "read_knob", "play_range", "bounce_track",
     "create_audio_track", "create_return_track", "set_monitoring",
     "audio_clip_info", "align_audio",
-    "set_mute", "create_scene", "delete_clip",
+    "set_mute", "create_scene", "delete_clip", "get_ears",
 )
 # Actions that take several of Live's display ticks (browser loads finish on a later tick) get longer to answer.
 MONITOR_VALUES = {"in": 0, "auto": 1, "off": 2}  # Live's Track.monitoring_states
@@ -1011,8 +1017,9 @@ class SecondChair(ControlSurface):
         self._running = True
         self._token = _read_token()
         self._sock = None
-        self._osc_sock = None
+        self._osc_socks = []
         self._osc_out = None
+        self._ears = {}           # device id -> {"kind", "index", "frames": deque of (epoch ms, peak dB, rms dB, [band dB])}
         self._cc_lock = threading.Lock()
         self._events = deque()
         self._held = set()
@@ -1024,9 +1031,10 @@ class SecondChair(ControlSurface):
         self._thread = threading.Thread(target=self._serve)
         self._thread.daemon = True
         self._thread.start()
-        self._osc_thread = threading.Thread(target=self._osc_serve)
-        self._osc_thread.daemon = True
-        self._osc_thread.start()
+        for port, what in ((OSC_IN_PORT, "Chord Coach"), (EARS_PORT, "Ears")):
+            t = threading.Thread(target=self._osc_serve, args=(port, what))
+            t.daemon = True
+            t.start()
         self.show_message("SecondChair %s ready" % VERSION)
 
     def disconnect(self):
@@ -1036,7 +1044,7 @@ class SecondChair(ControlSurface):
                 self._sock.close()
         except Exception:
             pass
-        for sock in (self._osc_sock, self._osc_out):
+        for sock in list(self._osc_socks) + [self._osc_out]:
             try:
                 if sock:
                     sock.close()
@@ -1069,17 +1077,17 @@ class SecondChair(ControlSurface):
             t.daemon = True
             t.start()
 
-    # ---- Chord Coach side: OSC over UDP, loopback only ----
+    # ---- Max for Live devices (Chord Coach, Ears): OSC over UDP, loopback only ----
 
-    def _osc_serve(self):
+    def _osc_serve(self, port, what):
         try:
             u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            u.bind((HOST, OSC_IN_PORT))
+            u.bind((HOST, port))
             u.settimeout(1.0)
-            self._osc_sock = u
-            self.log_message("SecondChair: Chord Coach OSC listening on %s:%d" % (HOST, OSC_IN_PORT))
+            self._osc_socks.append(u)
+            self.log_message("SecondChair: %s OSC listening on %s:%d" % (what, HOST, port))
         except Exception as e:
-            self.log_message("SecondChair: could not listen for Chord Coach on UDP %d (%s); the TCP bridge still works" % (OSC_IN_PORT, e))
+            self.log_message("SecondChair: could not listen for %s on UDP %d (%s); the TCP bridge still works" % (what, port, e))
             return
         while self._running:
             try:
@@ -1116,6 +1124,32 @@ class SecondChair(ControlSurface):
                 else:
                     self._held.discard(pitch)
                 self._prune(now)
+        elif address == "/ears/levels":
+            self._on_ears(now, args)
+
+    def _on_ears(self, now, args):
+        """/ears/levels <device id> <track|return|main> <index> <peak dB> <rms dB> <band dB> x 8. The numbers only go in a table."""
+        if len(args) != 5 + EARS_BANDS or not isinstance(args[1], str) or args[1] not in ("track", "return", "main"):
+            return
+        nums = args[:1] + args[2:]
+        if not all(isinstance(a, (int, float)) and a == a for a in nums):  # a == a drops NaN
+            return
+        dev, index = int(args[0]), int(args[2])
+        if index < 0 or index > 4096:
+            return
+        db = [round(max(EARS_FLOOR_DB, min(24.0, float(a))), 1) for a in args[3:]]
+        with self._cc_lock:
+            e = self._ears.get(dev)
+            if e is None:
+                for k in [k for k, v in self._ears.items() if now - v["frames"][-1][0] > EARS_WINDOW_MS]:
+                    del self._ears[k]
+                if len(self._ears) >= MAX_EARS:
+                    return
+                e = self._ears[dev] = {"frames": deque(maxlen=64)}
+            e["kind"], e["index"] = args[1], index
+            e["frames"].append((now, db[0], db[1], db[2:]))
+            while now - e["frames"][0][0] > EARS_WINDOW_MS:
+                e["frames"].popleft()
 
     def _prune(self, now):
         # caller holds _cc_lock
@@ -1840,6 +1874,46 @@ class SecondChair(ControlSurface):
             shown = dict(self._last_shown) if self._last_shown else None
         return {"now": now, "device": device, "device_seen_ms_ago": ago, "held": held,
                 "events": events, "shown": shown}
+
+    # ---- Second Chair Ears: levels measured in the signal path by an optional Max for Live device (read-only) ----
+
+    def _a_get_ears(self, track=None, seconds=2.0):
+        """The latest numbers from each Ears device, with their age, plus the loudest peak and the average RMS over the
+        last few seconds. Refuses when no Ears device has reported lately."""
+        s = self.song()
+        secs = max(0.25, min(EARS_WINDOW_MS / 1000.0, float(seconds)))
+        if track is not None:
+            self._track(track)
+        now = int(time.time() * 1000)
+        with self._cc_lock:
+            live = [(dev, e["kind"], e["index"], list(e["frames"])) for dev, e in self._ears.items()
+                    if now - e["frames"][-1][0] <= EARS_ALIVE_MS]
+        n, returns = len(s.tracks), len(getattr(s, "return_tracks", ()) or ())
+        every = self._all_tracks()
+        rows = []
+        for dev, kind, index, frames in live:
+            i = index if kind == "track" else n + index if kind == "return" else n + returns
+            if (kind == "track" and index >= n) or (kind == "return" and index >= returns) or i >= len(every):
+                continue  # the track moved or went; the device corrects itself within a couple of seconds
+            at, peak, rms, bands = frames[-1]
+            recent = [f for f in frames if now - f[0] <= secs * 1000] or [frames[-1]]
+            power = sum(10.0 ** (f[2] / 10.0) for f in recent) / len(recent)
+            rows.append({"track": i, "name": str(every[i].name), "device_id": dev, "age_ms": max(0, now - at),
+                         "peak_db": peak, "rms_db": rms, "bands_db": bands,
+                         "window_seconds": round((recent[-1][0] - recent[0][0]) / 1000.0 + 0.25, 2),
+                         "window_peak_db": max(f[1] for f in recent),
+                         "window_rms_db": round(max(EARS_FLOOR_DB, 10.0 * math.log10(power)), 1)})
+        rows.sort(key=lambda r: (r["track"], r["device_id"]))
+        if not rows:
+            raise ValueError("no Second Chair Ears device is reporting. Ears is an optional Max for Live audio effect: "
+                             "drop it on the track to listen to, then ask again")
+        if track is not None:
+            have = sorted(set(r["track"] for r in rows))
+            rows = [r for r in rows if r["track"] == int(track)]
+            if not rows:
+                raise ValueError("no Ears device on track %d (%s). Ears is reporting from track %s" % (
+                    int(track), every[int(track)].name, ", ".join(str(t) for t in have)))
+        return {"is_playing": bool(s.is_playing), "ears": rows}
 
     # ---- device settings: read and turn one knob at a time (Live's undo takes it back) ----
 

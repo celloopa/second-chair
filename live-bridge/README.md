@@ -428,6 +428,17 @@ Shared with the Mac port. Asked for by the user on 2026-11-10 while building the
 - **Building the device:** run `node chord-coach/build.ts`, then the installer with `--chord-coach`, after editing `chord-coach\chordcoach.js` or `chords.ts`. It writes the computed voicings and a chord-name table into the jsui (Max's jsui can't run TypeScript), rebuilds the `.amxd`, and copies both into the User Library. Then reload the device in Live.
 - **New tools in an old session:** a session that loaded an older server can try them with `node test\try_tool.ts live_show_on_keys "{\"chord\":\"Dm7\"}"`.
 
+## Second Chair Ears link (0.10.0, a spike)
+
+- **Status:** tried in real Live on one PC. Its peak reading still needs a controlled comparison with the peak Live shows (see `ears/README.md`, "Comparing levels").
+- **Installing the device:** the installer with `--ears` copies it into the User Library (`Presets/Audio Effects/Max Audio Effect/Second Chair Ears`).
+- **What:** an optional Max for Live audio effect (`ears/`) that measures the audio passing through it. `live_listen` reads its numbers: peak and RMS in dBFS, 8 coarse bands, and how old they are. See `ears/README.md`.
+- **Transport:** device → bridge only, OSC over UDP on 127.0.0.1, port 9888: `/ears/levels <device id> <track|return|main> <index> <peak dB> <rms dB> <band dB> x 8`, about 4 times a second. No token, as with Chord Coach: it carries only numbers.
+- **Bridge action:** `get_ears` (`track`, `seconds`). It refuses when no Ears device has reported in the last 3 s.
+- **Many devices:** one per track is fine. Each reports under its own device id.
+- **Where it measures:** at the device's place in the chain, before the track's fader.
+- The fake has a stand-in Ears device, switched on and off with the fake-only action `fake_ears`.
+
 ## Test
 
 ```

@@ -561,7 +561,7 @@ import SecondChair  # noqa: E402
 
 # Spare UDP ports, so a test run never talks to the real Chord Coach while Live is open. Set SECOND_CHAIR_PORT
 # (for example 19885) to test while Live itself holds 9885; mcp_client.ts and the MCP server read it too.
-SecondChair.OSC_IN_PORT, SecondChair.OSC_OUT_PORT = 19886, 19887
+SecondChair.OSC_IN_PORT, SecondChair.OSC_OUT_PORT, SecondChair.EARS_PORT = 19886, 19887, 19888
 SecondChair.PORT = int(os.environ.get("SECOND_CHAIR_PORT", SecondChair.PORT))
 
 # A fake-only action: from now on, new tracks land after the selected track, as in real Live.
@@ -628,6 +628,34 @@ def fake_device():
     rx.close(); tx.close()
 
 threading.Thread(target=fake_device, daemon=True).start()
+
+# ---- stand-in for a Second Chair Ears Max device: off until the fake-only action "fake_ears" drops it on a track ----
+EARS_ON = {"track": None}
+EARS_FRAME = [-6.0, -18.0, -40.0, -21.0, -27.0, -33.0, -39.0, -45.0, -51.0, -60.0]  # peak, rms, then 8 bands: bass-heavy
+
+def fake_ears():
+    tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    to_bridge = ("127.0.0.1", SecondChair.EARS_PORT)
+    tick = 0
+    while not stop_device.is_set():
+        track = EARS_ON["track"]
+        if track is not None:
+            tick += 1
+            frame = list(EARS_FRAME)
+            if tick % 2:
+                frame[0] = -9.0  # the peak wobbles, so "now" and "the last moment" can differ
+            tx.sendto(SecondChair.osc_encode("/ears/levels", [4242, "track", int(track)] + frame), to_bridge)
+            tx.sendto(SecondChair.osc_encode("/ears/levels", [4243, "nowhere", 0] + frame), to_bridge)  # must be ignored
+            tx.sendto(SecondChair.osc_encode("/ears/levels", [4244, "track", 999] + frame), to_bridge)  # no such track
+        time.sleep(0.25)
+    tx.close()
+
+def _fake_ears(self, track=None):
+    EARS_ON["track"] = None if track is None else int(track)
+    return {"ears_on_track": EARS_ON["track"]}
+SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_ears",)
+SecondChair.SecondChair._a_fake_ears = _fake_ears
+threading.Thread(target=fake_ears, daemon=True).start()
 end = time.time() + float(sys.argv[1] if len(sys.argv) > 1 else 20)
 while time.time() < end:
     finish_loads()           # browser loads land between ticks, as in Live

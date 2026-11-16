@@ -7,7 +7,7 @@
 //   node install.mjs --uninstall     take it out again (keeps the studio profile)
 //
 // Options: --dry-run (say what it would do), --user-library "<folder>" (if Live's User Library isn't found),
-//          --no-claude-code, --no-claude-desktop, --no-skill, --chord-coach (also install the Chord Coach device).
+//          --no-claude-code, --no-claude-desktop, --no-skill, --chord-coach, --ears (also install that Max for Live device).
 //
 // What it touches, and nothing else:
 //   1. Live's User Library: Remote Scripts/SecondChair (the script that runs inside Live).
@@ -26,7 +26,7 @@ import zlib from "node:zlib";
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const valueOf = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined; };
-const known = ["--check", "--survey", "--uninstall", "--dry-run", "--user-library", "--no-claude-code", "--no-claude-desktop", "--no-skill", "--chord-coach", "--help", "-h"];
+const known = ["--check", "--survey", "--uninstall", "--dry-run", "--user-library", "--no-claude-code", "--no-claude-desktop", "--no-skill", "--chord-coach", "--ears", "--help", "-h"];
 const unknown = args.filter((a, i) => a.startsWith("-") ? !known.includes(a) : args[i - 1] !== "--user-library");
 if (unknown.length || has("--help") || has("-h")) {
   console.log(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(0, 11).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
@@ -294,6 +294,14 @@ function installChordCoach(lib) {
   act(`Copied Chord Coach to ${dest}`, () => { fs.mkdirSync(dest, { recursive: true }); for (const f of ["Chord Coach.amxd", "chordcoach.js"]) fs.copyFileSync(path.join(src, f), path.join(dest, f)); });
 }
 
+// ---- Second Chair Ears (optional; needs Max for Live). The tool that reads it is live_listen. ----
+function installEars(lib) {
+  const src = path.join(REPO, "ears");
+  const dest = path.join(lib, "Presets", "Audio Effects", "Max Audio Effect", "Second Chair Ears");
+  if (!exists(path.join(src, "Second Chair Ears.amxd"))) return skip("Second Chair Ears: its files aren't in this copy");
+  act(`Copied Second Chair Ears to ${dest}`, () => { fs.mkdirSync(dest, { recursive: true }); for (const f of ["Second Chair Ears.amxd", "ears.js"]) fs.copyFileSync(path.join(src, f), path.join(dest, f)); });
+}
+
 // ---- is Live answering? ----
 function ping(token, ms = 1500) {
   const port = Number(process.env.SECOND_CHAIR_PORT) || 9885;
@@ -329,6 +337,7 @@ async function install() {
   act(`Copied the SecondChair script ${now} to ${dest}${was && was !== now ? ` (it was ${was})` : ""}`, () => { copyDir(SCRIPT_SRC, dest); fs.rmSync(path.join(dest, "__pycache__"), { recursive: true, force: true }); });
   writeToken(dest);
   if (has("--chord-coach")) installChordCoach(lib.dir);
+  if (has("--ears")) installEars(lib.dir);
 
   head("3. In Claude");
   registerClaude();

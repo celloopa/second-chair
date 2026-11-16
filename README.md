@@ -6,7 +6,7 @@ Second Chair puts your AI agent inside your Live set. You ask in plain words. It
 
 In an orchestra, the second chair sits beside the lead player and backs them up. You lead.
 
-**Private beta, version 0.9.9. Please don't share it yet.**
+**Private beta, version 0.10.0. Please don't share it yet.**
 
 ## What you can ask
 
@@ -62,7 +62,7 @@ Two parts, and one installer for both:
 | Part | What it is | Where it runs |
 |---|---|---|
 | **SecondChair**, the script | A small script that Live loads as a "Control Surface". It carries out a fixed list of actions. | Inside Live |
-| **second-chair**, the tools | 64 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
+| **second-chair**, the tools | 65 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
 
 Your **studio profile** is one file, `SecondChair/my-studio.md` in your home folder. It holds your name, your gear, your plugins and how you like to be taught, so the agent knows your setup in every session. You can read and edit it yourself.
 
@@ -91,7 +91,7 @@ These are built into the tools and the guide:
 | Read this | For |
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Your agent: the whole setup, from survey to your studio profile |
-| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.9.9, by job, with things to say |
+| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.10.0, by job, with things to say |
 | [docs/needs-your-hands.md](docs/needs-your-hands.md) | What the tools can't do: what you do by hand, and what Claude can do with computer use switched on |
 | [docs/whats-next.md](docs/whats-next.md) | What's unproven, what could be patched in, and what's planned |
 | [live-bridge/README.md](live-bridge/README.md) | The technical notes: every tool and how it works inside |
@@ -137,7 +137,7 @@ To see what it would do without changing anything, add `--dry-run`.
 
 1. Quit Live fully if it's open, and open it again. Live only reads the script when it starts.
 2. Go to **Settings > Link, Tempo & MIDI**. Under **Control Surface**, pick **SecondChair** in an empty row. Leave its Input and Output on **None**.
-3. The bar at the bottom of Live says **"SecondChair 0.9.9 ready"**.
+3. The bar at the bottom of Live says **"SecondChair 0.10.0 ready"**.
 
 **B. In Claude**
 
@@ -245,7 +245,7 @@ Run the check first (above). Then:
 | What you see | What to do |
 |---|---|
 | SecondChair is missing from Live's Control Surface list | Live was open during the install, or the script went to a different User Library. Quit Live fully and reopen. Check Settings > Library for the User Library's location, and run the installer with `--user-library "<that folder>"`. |
-| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.9.9 ready". |
+| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.10.0 ready". |
 | Claude says "unknown action" or warns about versions | Live is still running an older script. Quit Live fully and open it again. |
 | Claude says "unauthorized" or the token is missing | Run the installer again, then restart Live. |
 | Claude has no `second-chair` tools | Quit Claude fully (tray icon too on Windows) and reopen. Run the check. If needed, add it by hand (above). |

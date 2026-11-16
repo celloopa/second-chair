@@ -20,7 +20,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.9.9";
+const VERSION = "0.10.0";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -264,6 +264,27 @@ function swapToRestore(track: number, pad: unknown): SwapEntry {
 
 const MISSING_DEVICE = "Chord Coach isn't reporting. In Live, drop Chord Coach (User Library > Presets > MIDI Effects > Max MIDI Effect) on the MIDI track you play, and arm the track or set Monitor to In so it hears the keyboard.";
 const withDeviceHint = (r: unknown) => ((r as { device?: string }).device === "missing" ? { ...(r as object), hint: MISSING_DEVICE } : r);
+// Second Chair Ears: the device's 8 band filters sit an octave apart (see ears/make_amxd.py).
+const EARS_BANDS = [["sub", 63], ["bass", 125], ["low mids", 250], ["mids", 500], ["mids", 1000], ["upper mids", 2000], ["presence", 4000], ["air", 8000]] as const;
+const EARS_SILENT_DB = -70;
+type EarsRow = { track: number; name: string; device_id: number; age_ms: number; peak_db: number; rms_db: number; bands_db: number[]; window_seconds: number; window_peak_db: number; window_rms_db: number };
+function earsRow(e: EarsRow) {
+  const hz = (f: number) => (f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`);
+  const silent = e.window_rms_db < EARS_SILENT_DB;
+  const power = e.bands_db.map((d) => 10 ** (d / 10));
+  const total = power.reduce((x, y) => x + y, 0) || 1;
+  const bands = EARS_BANDS.map(([word, f], i) => ({ band: `${hz(f)} (${word})`, db: e.bands_db[i], share_percent: silent ? 0 : Math.round((100 * power[i]) / total) }));
+  const top = [...bands].sort((x, y) => y.db - x.db);
+  const peak = e.window_peak_db;
+  return {
+    track: e.track, name: e.name, age_ms: e.age_ms,
+    now: { peak_db: e.peak_db, rms_db: e.rms_db },
+    last_moment: { seconds: e.window_seconds, peak_db: peak, rms_db: e.window_rms_db, crest_db: silent ? null : Math.round((peak - e.window_rms_db) * 10) / 10 },
+    reads: silent ? "silent" : peak >= -0.1 ? "at the top: likely clipping here" : peak >= -3 ? "hot" : peak >= -18 ? "healthy" : "low",
+    most_energy: silent ? "none: nothing is coming through" : `${top[0].band}, then ${top[1].band}`,
+    bands,
+  };
+}
 /** Live's note names: 60 = C3. */
 const noteName = (n: number) => `${SHARPS[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;
 
@@ -364,6 +385,17 @@ const tools: Tool[] = [
   { name: "live_get_levels", description: "Read the output meters (read-only) while Live plays: each track's and Main's peak over a moment (seconds, default 1.5), as Live's meter value 0-1, with a guessed dB and a word (silent, low, healthy, hot, near the top). Use this for gain staging instead of reading meter colours off a screenshot.",
     inputSchema: obj({ track: int("Just this track (optional)"), seconds: { type: "number", description: "How long to watch, 0.2-5" } }),
     run: (a) => bridge("get_levels", a) },
+  { name: "live_listen", description: "How loud a track is right now and where its energy sits (read-only), measured from the audio itself by Second Chair Ears, an optional Max for Live audio effect the user drops on a track. No export needed. Per Ears device: peak and RMS in dBFS now and over the last moment (seconds, default 2), the gap between them (crest), 8 coarse bands with each band's share, and how old the numbers are. It measures at the device's place in the chain, before the track's fader. Refuses when no Ears device is in the set: then use live_get_levels (meters only) or audio_analyze (an exported file).",
+    inputSchema: obj({ track: int("Just this track (optional)"), seconds: { type: "number", description: "How far back the window numbers look, 0.25-5 (default 2)" } }),
+    run: async (a) => {
+      let r: { is_playing: boolean; ears: EarsRow[] };
+      try { r = await bridge("get_ears", a) as typeof r; } catch (e) {
+        if (/unknown action/.test((e as Error).message)) throw new Error("The Second Chair script running in Live is older than live_listen. Update it, then fully quit Live and open it again.");
+        throw e;
+      }
+      return { is_playing: r.is_playing, ears: r.ears.map(earsRow),
+        note: "dBFS where the Ears device sits, before the track fader. Bands are an octave wide and overlap, so read them as a rough shape, not a spectrum. These are numbers, not hearing: say what they show and let the user judge the sound." };
+    } },
   { name: "live_copy_clip", description: "Copy a Session clip into an empty slot (same track or another of the same kind). Revertible with live_revert.",
     inputSchema: obj({ track: int("From track"), slot: int("From slot"), to_track: int("To track"), to_slot: int("To slot (must be empty)") }, ["track", "slot", "to_track", "to_slot"]),
     run: (a) => bridge("copy_clip", a) },

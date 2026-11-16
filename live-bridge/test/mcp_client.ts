@@ -522,6 +522,23 @@ if (!js(await expect("ok", "live_status", {}, "studio_profile")).studio_profile.
 await expect("refused", "live_delete_track", { track: 0, name: "Wrong" }, "nothing was deleted");
 fs.rmSync(STUDIO_FILE, { force: true }); fs.rmSync(STUDIO_FILE.replace(/\.md$/, "") + ".previous.md", { force: true });
 
+// Second Chair Ears (optional Max for Live audio effect): live_listen refuses until a device reports, then gives its numbers.
+await expect("refused", "live_listen", {}, "no Second Chair Ears device is reporting");
+await fakeOnly("fake_ears", { track: 1 }); // the stand-in device lands on track 1
+await new Promise((r) => setTimeout(r, 1200));
+const ear = js(await expect("ok", "live_listen", {}, "125 Hz (bass)"));
+const e0 = ear.ears?.[0];
+if (ear.ears?.length !== 1 || e0?.track !== 1) { failed++; console.log("!! live_listen should report one Ears device, on track 1 (reports from a made-up track kind or a missing track are dropped)"); }
+if (!(e0?.age_ms >= 0 && e0?.age_ms < 1000)) { failed++; console.log("!! live_listen should say how old the numbers are, and they should be fresh"); }
+if (e0?.last_moment?.peak_db !== -6 || e0?.last_moment?.rms_db !== -18 || e0?.last_moment?.crest_db !== 12 || e0?.reads !== "healthy") { failed++; console.log("!! live_listen: wrong peak, RMS, crest or word: " + JSON.stringify(e0?.last_moment)); }
+if (e0?.bands?.length !== 8 || !String(e0?.most_energy).startsWith("125 Hz") || !(e0?.bands[1].share_percent > 50)) { failed++; console.log("!! live_listen: the bass band should hold most of the energy"); }
+await expect("ok", "live_listen", { track: 1, seconds: 1 }, "\"track\": 1");
+await expect("refused", "live_listen", { track: 0 }, "no Ears device on track 0");
+await expect("refused", "live_listen", { track: 99 }, "doesn't exist");
+await fakeOnly("fake_ears", {}); // the device is removed: after 3 s of silence it counts as gone
+await new Promise((r) => setTimeout(r, 3400));
+await expect("refused", "live_listen", {}, "no Second Chair Ears device is reporting");
+
 // a client without the token must be refused by the bridge itself
 await new Promise<void>((res) => {
   const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.SECOND_CHAIR_PORT || 9885) }, () => s.write(JSON.stringify({ id: 1, token: "wrong", action: "get_session" }) + "\n"));
