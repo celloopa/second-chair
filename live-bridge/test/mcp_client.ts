@@ -9,7 +9,7 @@ import fs from "node:fs";
 const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.pid}.md`);
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
-  env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "being-dumb* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
+  env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "my-song* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
     SECOND_CHAIR_STATE_DIR: path.join(os.tmpdir(), `second-chair-test-${process.pid}`) } });
 let buf = ""; const waiting = new Map<number, (m: any) => void>();
 server.stdout.on("data", (c) => {
@@ -191,12 +191,12 @@ await call("live_screenshot", { max_width: 800 }); // fake_live has no Live wind
 await call("live_undo");
 
 // Which set is open (0.6.1): read from Live's window title (the test sets SECOND_CHAIR_LIVE_TITLE).
-for (const [title, want, warn] of [["being-dumb* - Ableton Live 12 Suite", "being-dumb", false], ["Untitled - Ableton Live 12 Suite", "Untitled", true]] as const) {
+for (const [title, want, warn] of [["my-song* - Ableton Live 12 Suite", "my-song", false], ["Untitled - Ableton Live 12 Suite", "Untitled", true]] as const) {
   const { parseTitle } = await import("../mcp/liveset.ts");
   const r = parseTitle(title) as any;
-  if (r.name !== want || !!r.warning !== warn || (want === "being-dumb" && !r.unsaved)) { failed++; console.log(`!! set title "${title}" read as ${JSON.stringify(r)}`); }
+  if (r.name !== want || !!r.warning !== warn || (want === "my-song" && !r.unsaved)) { failed++; console.log(`!! set title "${title}" read as ${JSON.stringify(r)}`); }
 }
-if (!/"set": \{\s*"name": "being-dumb",\s*"unsaved": true/.test(status.result?.content?.[0]?.text ?? "")) { failed++; console.log("!! live_status should report the open set"); }
+if (!/"set": \{\s*"name": "my-song",\s*"unsaved": true/.test(status.result?.content?.[0]?.text ?? "")) { failed++; console.log("!! live_status should report the open set"); }
 // A new track's real index (0.6.1): real Live puts it after the selected track, not at the end.
 const fakeOnly = (action: string, params: Record<string, unknown> = {}) => new Promise<void>((res) => {
   const s = net.createConnection({ host: "127.0.0.1", port: Number(process.env.SECOND_CHAIR_PORT || 9885) }, () =>
@@ -324,6 +324,13 @@ await expect("refused", "live_delete_device", { track: tlTrack, device: "Compres
 await expect("ok", "live_delete_device", { track: tlTrack, device: "Compressor", name: "Compressor" }, "\"deleted\"");
 const lv = js(await expect("ok", "live_get_levels", { seconds: 0.3 }, "levels"));
 if ((!lv.is_playing && !lv.warning) || !(lv.levels ?? []).some((r: any) => r.track === "main" && r.peak > 0)) { failed++; console.log("!! levels should include Main and warn when Live isn't playing"); }
+const lvReturn = (lv.levels ?? []).find((r: any) => r.kind === "return"), lvMain = (lv.levels ?? []).filter((r: any) => typeof r.track === "number").length;
+if (!lvReturn) { failed++; console.log("!! levels should include the return tracks"); }
+else {
+  await expect("ok", "live_get_levels", { track: lvReturn.track, seconds: 0.2 }, "\"kind\": \"return\"");
+  await expect("ok", "live_get_levels", { track: lvMain, seconds: 0.2 }, "\"track\": \"main\"");
+}
+if (!(lv.levels ?? []).some((r: any) => r.peak === 0.62 && r.peak_db === -22.9 && r.about === "-22.9 dB" && r.reads === "low")) { failed++; console.log("!! levels: a meter value of 0.62 is -22.9 dB (76 x value - 70), which reads low: " + JSON.stringify(lv.levels?.[0])); }
 await expect("ok", "live_copy_clip", { track: tlTrack, slot: 0, to_track: tlTrack, to_slot: 1 }, "copied");
 await expect("refused", "live_copy_clip", { track: tlTrack, slot: 0, to_track: tlTrack, to_slot: 1 }, "already has a clip");
 await expect("ok", "live_revert", {}, "reverted");

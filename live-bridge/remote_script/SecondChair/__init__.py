@@ -30,7 +30,7 @@ from collections import deque
 import Live
 from _Framework.ControlSurface import ControlSurface
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 HOST = "127.0.0.1"
 PORT = 9885
 OSC_IN_PORT = 9886    # Chord Coach device -> bridge
@@ -2108,20 +2108,22 @@ class SecondChair(ControlSurface):
 
     # ---- meters (0.9.2) ----
     def _a_get_levels(self, track=None, seconds=1.5):
-        """Generator: watches the output meters for a moment and reports each track's peak (0-1, Live's meter scale)."""
+        """Generator: watches the output meters for a moment and reports each track's peak. Covers the return tracks and
+        Main too (0.10.1). Live's meter value is a straight line in dB: 0 is -70 dB, 1 is +6 dB (measured in Live 12.4)."""
         s = self.song()
         secs = max(0.2, min(5.0, float(seconds)))
-        tracks = list(s.tracks)
+        every = self._all_tracks()
+        n, returns = len(s.tracks), len(getattr(s, "return_tracks", ()) or ())
         if track is not None:
             self._track(track)
-        pick = [(i, tracks[i]) for i in (range(len(tracks)) if track is None else [int(track)])]
-        master = getattr(s, "master_track", None)
-        if track is None and master is not None:
-            pick.append(("main", master))
-        peaks = dict((k, [0.0, 0.0, 0.0]) for k, _ in pick)
+        pick = []
+        for i in (range(len(every)) if track is None else [int(track)]):
+            kind = "track" if i < n else "return" if i < n + returns else "main"
+            pick.append(("main" if kind == "main" else i, kind, every[i]))
+        peaks = dict((k, [0.0, 0.0, 0.0]) for k, _, _ in pick)
         end = time.time() + secs
         while True:
-            for k, t in pick:
+            for k, _, t in pick:
                 p = peaks[k]
                 p[0] = max(p[0], float(getattr(t, "output_meter_level", 0.0) or 0.0))
                 p[1] = max(p[1], float(getattr(t, "output_meter_left", 0.0) or 0.0))
@@ -2130,18 +2132,18 @@ class SecondChair(ControlSurface):
                 break
             yield
         out = []
-        for k, t in pick:
+        for k, kind, t in pick:
             lvl, l, r = peaks[k]
-            row = {"track": k, "name": str(t.name), "peak": round(lvl, 3), "left": round(l, 3), "right": round(r, 3)}
-            try:
-                row["about"] = _param_text(t.mixer_device.volume, lvl)  # a guess: the meter shares the fader's dB scale
-            except Exception:
-                pass
-            row["reads"] = ("silent" if lvl < 0.01 else "low" if lvl < 0.5 else "healthy" if lvl < 0.85
-                            else "hot" if lvl < 0.95 else "near the top")
-            out.append(row)
+            silent = lvl < 0.005
+            db = round(76.0 * lvl - 70.0, 1)
+            out.append({"track": k, "kind": kind, "name": str(t.name), "peak": round(lvl, 3), "left": round(l, 3),
+                        "right": round(r, 3), "peak_db": None if silent else db,
+                        "about": "silent" if silent else "%s dB" % db,
+                        "reads": ("silent" if silent else "near the top" if db >= -0.1 else "hot" if db >= -3
+                                  else "healthy" if db >= -18 else "low")})
         res = {"seconds": secs, "is_playing": bool(s.is_playing), "levels": out,
-               "note": "peak is Live's meter value from 0 to 1. 'about' and the words are guesses at the dB scale."}
+               "note": "peak_db is the peak in dB as Live's meter shows it, after the fader. peak, left and right are "
+                       "Live's raw meter values from 0 to 1."}
         if not s.is_playing:
             res["warning"] = "Live isn't playing, so most meters read 0. Play the part (or arm and speak/play into an input) first."
         return res

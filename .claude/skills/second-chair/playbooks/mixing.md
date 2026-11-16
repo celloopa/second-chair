@@ -5,7 +5,7 @@ Use for "it sounds muddy", "the kick and bass fight", "check my levels", "make r
 ## Levels first (no colours)
 
 1. Play the busiest part (the user presses play, or `live_transport` play when asked).
-2. `live_get_levels`: each track and Main get a peak (0-1), a guessed dB, and a word: silent, low, healthy, hot, near the top.
+2. `live_get_levels`: each track and Main get a peak in dB (`peak_db`, as Live's meter shows it) and a word: silent, low (under -18 dB), healthy, hot (above -3 dB), near the top (0 dB or over).
 3. Report by **track name and word**, never by meter colour: "Drums: hot. Vox Slices: low. Main: near the top, so turn things down before adding a limiter."
 4. Fix level with **Utility's Output** or the clip's gain first, so the faders stay free for the mix.
 

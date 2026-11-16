@@ -1,5 +1,5 @@
 // Which Live set is open, read from Live's window title (Live's script API doesn't give the set's name).
-// Windows: "being-dumb* - Ableton Live 12 Suite" (the * means unsaved changes). A new set is "Untitled".
+// Windows: "my-song* - Ableton Live 12 Suite" (the * means unsaved changes). A new set is "Untitled".
 // Mac: the window name, read through System Events (needs Accessibility permission; a guess until checked on the Mac).
 // SECOND_CHAIR_LIVE_TITLE overrides the title, for tests.
 import { execFile } from "node:child_process";

@@ -15,8 +15,8 @@ These pass the tests against a stand-in for Live. The stand-in has been wrong be
 | Automation in Session clips (`live_automate`) | All of it. |
 | Timeline edits | Placing, moving and deleting Arrangement clips; duplicating a track; copying a Session clip. |
 | Devices | Moving a device; reaching devices inside racks. |
-| Meters (`live_get_levels`) | The dB figure assumes Live's meter uses the same scale as the volume fader (a guess). Meters on return tracks and Main. |
-| Second Chair Ears (`live_listen`) | Tried on one PC. Its peak hasn't been compared with the peak Live shows under controlled conditions. The 8 band numbers compare with each other; they aren't true dB per band. Not tried on a Mac. |
+| Meters (`live_get_levels`) | The dB figure was checked on one PC. Not checked on a Mac. |
+| Second Chair Ears (`live_listen`) | Its peak matches Live's own meter on one PC. Not checked: the device on a return track, on Main or inside a rack. The 8 band numbers compare with each other; they aren't true dB per band. Not tried on a Mac. |
 | Melodyne helper (`live_play_bars`) | Playing a range for Transfer. |
 | Measuring on a Mac (`audio_analyze`) | Proven on Windows only. |
 | The installer | Run for real on one Mac and one Windows PC, both of which already had an older setup. **Not run on a clean machine yet.** |

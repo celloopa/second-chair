@@ -217,7 +217,7 @@ For mastering, where Claude has no ears (the beta's first use, 2026-11-12). MCP 
 
 - **`audio_analyze`** `{file | clip, reference?}` (`mcp/loudness.ts`): integrated loudness in LUFS (ITU-R BS.1770-4: K-weighting made for the file's sample rate, 400 ms blocks, gates at -70 LUFS and -10 LU), loudness range (EBU Tech 3342), the loudest 3 seconds, true peak (4x, checked near the loudest samples), sample peak, RMS, crest, clipped samples, energy share in six bands (an FFT average over each channel), and stereo correlation and side-versus-mid level. With `reference`, the same for a second file and the differences. `reading` puts the main points in plain words.
 - **Checked against known signals:** a 1 kHz stereo sine at -23 dBFS reads -23.0 LUFS at 48 kHz and 44.1 kHz; with quiet sections before and after it still reads -23.0 (gating); a 12 kHz sine whose samples miss its peaks reads the true peak 3 dB above the sample peak.
-- **Tried on real files:** `being-dumb-3.wav` reads -25.6 LUFS with a true peak of -10.7 dB; the first bounce `being-dumb.wav` reads -13.7 LUFS and -1.7 dB. 91 seconds of stereo takes about 1.5 s.
+- **Tried on real files:** one quiet bounce reads -25.6 LUFS with a true peak of -10.7 dB; an earlier bounce reads -13.7 LUFS and -1.7 dB. 91 seconds of stereo takes about 1.5 s.
 - WAV only (16/24/32-bit PCM, 32-bit float). No MP3 or AIFF yet.
 - **Version check:** `live_status` now warns only when Live's Remote Script is older than `NEEDS_BRIDGE` (0.9.6), so server-only releases like this one don't ask for a Live restart.
 - **Playbook:** `playbooks/mastering.md` (the export-measure-listen loop, what each number means, the chain on Main, Ozone).
@@ -300,12 +300,12 @@ The user's top request on 2026-11-12: volume builds and fades on the timeline. L
 
 ## Devices, meters, racks and clip edits (bridge 0.9.2)
 
-From the Clams beat chat's issue list (2026-11-12, `side-session-notes/.../clams-beat-bridge-issues-2026-11-12.md`).
+From a beat session's issue list (2026-11-12).
 
 - **Racks:** any device argument takes a path, `"808 Rack > chain > Device"`. The chain can be left out when the rack has one. `get_device_params` on a rack lists its chains and their devices. This works for reading and setting knobs, moving, deleting and automating. Uses `RackDevice.chains` and `Chain.devices`.
 - **`move_device`** `{track, device, position | before | after}`: `Song.move_device(device, owner, position)` within the same track or chain. Revertible.
 - **`delete_device`** `{track, device, name}`: only when the user asks; the name must match. Not revertible with live_revert (live_undo).
-- **`get_levels`** `{track?, seconds?}`: watches `Track.output_meter_level` / `_left` / `_right` for every track and Main (`Song.master_track`) and reports the peak, 0-1. `about` reads that value on the track's volume fader scale (a guess that Live's meter shares it), plus a word: silent, low, healthy, hot, near the top (guessed bands). For gain staging without reading meter colours.
+- **`get_levels`** `{track?, seconds?}`: watches `Track.output_meter_level` / `_left` / `_right` for every track and Main (`Song.master_track`) and reports the peak, 0-1. Up to bridge 0.10.0 the bridge's own `about` read that value on the volume fader's scale, which is wrong by about 9 dB at typical levels, and asking for a return track or Main by number failed (IndexError), though Main was in the full list. Bridge 0.10.1 fixes both: the full list has regular tracks, return tracks and Main (`kind`: track, return, main), and any of them can be asked for by number. Live's meter value is a straight line in dB (`76 x value - 70`: 0 is -70 dB, 0.921 is 0 dB, 1 is +6 dB), measured in Live 12.4 with a sine at 14 levels from -62 to +4 dB against Second Chair Ears and Live's own peak readout. Bridge and server both return `peak_db`, `about` and a word: silent, low (under -18 dB), healthy, hot (above -3 dB), near the top (0 dB or over). The server (0.10.1) does the sum again from `peak`, so the dB is right with an older bridge too. For gain staging without reading meter colours.
 - **`copy_clip`** `{track, slot, to_track, to_slot}`: `ClipSlot.duplicate_clip_to` into an empty slot. Revertible.
 - **`move_arrangement_clip`** / **`delete_arrangement_clip`** (MCP: `live_arrangement_clip`): the clip is named by its name and start bar, and both must match. Live has no move for scripts, so a move is `duplicate_clip_to_arrangement` at the new bar, then `Track.delete_clip` on the old one. It never covers clips, and it's revertible. Delete is not revertible with live_revert (live_undo). Trim and split: no script API.
 - **`test/try_tool.ts`** takes `@file.json` or `-` (stdin), since PowerShell 5.1 splits JSON with spaces.
@@ -314,7 +314,7 @@ From the Clams beat chat's issue list (2026-11-12, `side-session-notes/.../clams
 
 ## Loads that land on the wrong track, and Arrangement automation (bridge 0.9.1)
 
-Found by the Clams beat chat in real Live on 2026-11-12.
+Found in a beat session in real Live on 2026-11-12.
 
 - **A load went to the wrong track.** `load_device` for track 8 put Utility on track 0 (the selected track), twice, and then reported "Live didn't add anything". My guess at the cause: the bridge selected track 8 and loaded on the same tick, and in real Live the new selection can take a tick to apply. Selecting first and loading in a later call worked.
   - Now every browser load selects the track and waits until Live shows it selected (or refuses after a few ticks).
@@ -339,7 +339,7 @@ Asked for by the user on 2026-11-12 ("everything also fades and timeline operati
 
 ## Note-length knobs and plugin sidechain text (bridge 0.8.2)
 
-Found by the Clams beat chat on 2026-11-12: `text: "1/4"` on Echo's "L Synced" set 1/64.
+Found in a beat session on 2026-11-12: `text: "1/4"` on Echo's "L Synced" set 1/64.
 
 - **Cause:** display text like "1/64", "1/4" and "1/1" was read as the number 1, so every step looked the same and the search took the lowest end.
 - **Fix:** "a/b" now reads as a fraction. For a knob with whole-number steps and no named choices (Echo's synced times run -6 ... 0), the bridge first looks for the step whose text matches exactly.
@@ -359,7 +359,7 @@ Asked for by the user on 2026-11-10: launched Session clips kept playing after S
 
 ## Sample chopping (bridge 0.8.0)
 
-Asked for by the user on 2026-11-10 while chopping a Splice vocal loop for the Clams beat.
+Asked for by the user on 2026-11-10 while chopping a vocal loop.
 
 - **Where files come from.** Live's Splice integration saves downloads to `User Library\User Library\Samples\Splice\`. The MCP server's `live_load_sample` takes a full path, or a name or words from it, and looks in the User Library's `Samples` folder and `Documents\Samples` (`mcp/samplefiles.ts`; `SECOND_CHAIR_SAMPLE_DIRS` replaces the list). Or `from_clip` uses an audio clip's own file (`AudioClip.file_path`) and keeps the clip's transpose.
 - **`load_sample`** `{track, file | from_clip: {track, slot}, mode?, slice_by?, sensitivity?, beat_division?, regions?, warp?, warp_mode?, transpose?, slice_playback?}`: on a MIDI track with no instrument, `Track.insert_device("Simpler")` (Live 12.3+), then `SimplerDevice.replace_sample(path)`, then the settings. Only audio file types, and the file must exist. One change in the revert list (the Simpler); the MCP server adds the new track and the arm and reports `revert_steps`.
@@ -390,13 +390,13 @@ Asked for by the user on 2026-11-10: `live_undo` is Live's global undo, so after
 
 ## Which set is open, and new track numbers (bridge 0.6.1)
 
-- **`live_status`** now has `set: {name, unsaved, untitled, warning?}`. Live's script API doesn't give the set's name, so the MCP server reads Live's window title (`mcp/liveset.ts`): on Windows "being-dumb* - Ableton Live 12 Suite", where `*` means unsaved changes. A set named "Untitled" gets a `warning`: it's probably an empty set Live opened instead of the user's song, so ask before changing anything. If the title can't be read, `set` is `{unknown: "..."}`. On the Mac it asks System Events for the window name (a guess until checked there). `SECOND_CHAIR_LIVE_TITLE` overrides the title for tests.
+- **`live_status`** now has `set: {name, unsaved, untitled, warning?}`. Live's script API doesn't give the set's name, so the MCP server reads Live's window title (`mcp/liveset.ts`): on Windows "my-song* - Ableton Live 12 Suite", where `*` means unsaved changes. A set named "Untitled" gets a `warning`: it's probably an empty set Live opened instead of the user's song, so ask before changing anything. If the title can't be read, `set` is `{unknown: "..."}`. On the Mac it asks System Events for the window name (a guess until checked there). `SECOND_CHAIR_LIVE_TITLE` overrides the title for tests.
 - **`create_midi_track`** (and `new_track` on the loading tools) now finds the new track by comparing the track list before and after. Real Live puts a track made with index -1 right after the selected track, not at the end, so 0.6.0 and earlier reported the wrong index. The fake does the same once the test sends the fake-only action `fake_after_selected`.
 - **Checked in real Live (0.6.0, 2026-11-10):** track input/output routing reads correctly (Live calls the master "Main"). Kickstart 2 (VST3) has no sidechain the API can reach: `get_routing` refuses it. Plugin sidechains have to be set by hand.
 
 ## Routing, plugin knobs and auditions (bridge 0.6.0)
 
-Shared with the Mac port. Asked for by the user on 2026-11-10 while building the Clams Casino beat: Kickstart 2 needed its sidechain set to the kick, a plugin knob was set to the wrong end, and trying sounds one by one took a chat round trip each.
+Shared with the Mac port. Asked for by the user on 2026-11-10 while building a beat: Kickstart 2 needed its sidechain set to the kick, a plugin knob was set to the wrong end, and trying sounds one by one took a chat round trip each.
 
 - **`get_routing`** `{track, device?}` → `{track, track_name | device, routes: {<io>: {from, channel, choices, channel_choices}}}`.
   - No device: the track's `input` and `output`, from Live's `available_input_routing_types` / `input_routing_type` / `..._channels` / `input_routing_channel` (and the `output_` ones).
@@ -428,9 +428,9 @@ Shared with the Mac port. Asked for by the user on 2026-11-10 while building the
 - **Building the device:** run `node chord-coach/build.ts`, then the installer with `--chord-coach`, after editing `chord-coach\chordcoach.js` or `chords.ts`. It writes the computed voicings and a chord-name table into the jsui (Max's jsui can't run TypeScript), rebuilds the `.amxd`, and copies both into the User Library. Then reload the device in Live.
 - **New tools in an old session:** a session that loaded an older server can try them with `node test\try_tool.ts live_show_on_keys "{\"chord\":\"Dm7\"}"`.
 
-## Second Chair Ears link (0.10.0, a spike)
+## Second Chair Ears link (0.10.0)
 
-- **Status:** tried in real Live on one PC. Its peak reading still needs a controlled comparison with the peak Live shows (see `ears/README.md`, "Comparing levels").
+- **Status:** checked in real Live on one PC. Its peak matched the peak Live shows on a sine, to 0.1 dB (see `ears/README.md`, "Checked in real Live").
 - **Installing the device:** the installer with `--ears` copies it into the User Library (`Presets/Audio Effects/Max Audio Effect/Second Chair Ears`).
 - **What:** an optional Max for Live audio effect (`ears/`) that measures the audio passing through it. `live_listen` reads its numbers: peak and RMS in dBFS, 8 coarse bands, and how old they are. See `ears/README.md`.
 - **Transport:** device → bridge only, OSC over UDP on 127.0.0.1, port 9888: `/ears/levels <device id> <track|return|main> <index> <peak dB> <rms dB> <band dB> x 8`, about 4 times a second. No token, as with Chord Coach: it carries only numbers.

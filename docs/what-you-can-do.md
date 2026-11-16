@@ -1,4 +1,4 @@
-# What you can do (up to 0.10.0)
+# What you can do (up to 0.10.1)
 
 Everything here works by asking Claude in plain words. You don't need the tool names; they're listed so you can see what's behind each request.
 
@@ -48,7 +48,7 @@ Tools: `live_status`, `live_get_track`, `live_get_arrangement`, `live_get_device
 
 | Say | What happens |
 |---|---|
-| "Play it and check my levels." | Each track's and Main's peak as a word (silent, low, healthy, hot, near the top) and a rough dB. |
+| "Play it and check my levels." | Each track's and Main's peak as a word (silent, low, healthy, hot, near the top) and its peak in dB, as Live's meter shows it. |
 | "How loud is the bass right now, and where does its energy sit?" | With the optional Second Chair Ears device on that track: its peak and average level in dB, and 8 rough bands from sub to air, measured from the audio. No export needed. It reads before the track's fader. |
 | "Turn the bass down 3 dB." / "Pan the guitar a bit left." | Sets the track's Volume, Pan or a Send. Any setting can be given in Live's own units ("-6 dB", "1.2 kHz", "35 %"). |
 | "Put an EQ on the vocal with a low cut around 100 Hz." | Loads the device and sets the knobs, and tells you what it set. |

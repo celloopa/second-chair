@@ -20,7 +20,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.10.0";
+const VERSION = "0.10.1";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -285,6 +285,15 @@ function earsRow(e: EarsRow) {
     bands,
   };
 }
+// Live's meter value (Track.output_meter_level) is a straight line in dB: 0 is -70 dB and 1 is +6 dB, so 0 dB sits at 0.921.
+// Measured in Live 12.4 with a sine at 14 levels from -62 to +4 dB, against Second Chair Ears and Live's own peak readout.
+const meterDb = (v: number) => Math.round((76 * v - 70) * 10) / 10;
+function levelRow(r: Record<string, unknown>) {
+  const peak = Number(r.peak) || 0;
+  const silent = peak < 0.005, db = meterDb(peak);
+  return { ...r, peak_db: silent ? null : db, about: silent ? "silent" : `${db} dB`,
+    reads: silent ? "silent" : db >= -0.1 ? "near the top" : db >= -3 ? "hot" : db >= -18 ? "healthy" : "low" };
+}
 /** Live's note names: 60 = C3. */
 const noteName = (n: number) => `${SHARPS[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;
 
@@ -382,9 +391,12 @@ const tools: Tool[] = [
   { name: "live_delete_device", description: "Delete one device, only when the user asks for that device to go. name must be the device's exact name (a check, so a stale index can't delete the wrong one). Not revertible with live_revert: live_undo straight away brings it back. For devices the bridge itself just loaded, prefer live_revert.",
     inputSchema: obj({ track: int("Track index from 0"), device: { type: ["string", "integer"], description: "Device name, index or rack path" }, name: { type: "string", description: "The device's exact name" } }, ["track", "device", "name"]),
     run: (a) => bridge("delete_device", a) },
-  { name: "live_get_levels", description: "Read the output meters (read-only) while Live plays: each track's and Main's peak over a moment (seconds, default 1.5), as Live's meter value 0-1, with a guessed dB and a word (silent, low, healthy, hot, near the top). Use this for gain staging instead of reading meter colours off a screenshot.",
+  { name: "live_get_levels", description: "Read the output meters (read-only) while Live plays: each track's and Main's peak over a moment (seconds, default 1.5), in dB as Live's own meter shows it (peak_db; peak is Live's raw meter value 0-1), with a word: silent, low (under -18 dB), healthy, hot (above -3 dB), near the top (0 dB or over). It reads after the track's fader. Return tracks and Main are included (a Second Chair script older than 0.10.1 lists only regular tracks and Main, and fails when asked for a return track or Main by number). Use this for gain staging instead of reading meter colours off a screenshot.",
     inputSchema: obj({ track: int("Just this track (optional)"), seconds: { type: "number", description: "How long to watch, 0.2-5" } }),
-    run: (a) => bridge("get_levels", a) },
+    run: async (a) => {
+      const r = await bridge("get_levels", a) as { levels?: Record<string, unknown>[] };
+      return { ...r, levels: (r.levels ?? []).map(levelRow), note: "peak_db is the peak in dB as Live's track meter shows it, after the fader. peak, left and right are Live's raw meter values from 0 to 1." };
+    } },
   { name: "live_listen", description: "How loud a track is right now and where its energy sits (read-only), measured from the audio itself by Second Chair Ears, an optional Max for Live audio effect the user drops on a track. No export needed. Per Ears device: peak and RMS in dBFS now and over the last moment (seconds, default 2), the gap between them (crest), 8 coarse bands with each band's share, and how old the numbers are. It measures at the device's place in the chain, before the track's fader. Refuses when no Ears device is in the set: then use live_get_levels (meters only) or audio_analyze (an exported file).",
     inputSchema: obj({ track: int("Just this track (optional)"), seconds: { type: "number", description: "How far back the window numbers look, 0.25-5 (default 2)" } }),
     run: async (a) => {

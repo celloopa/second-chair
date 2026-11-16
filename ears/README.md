@@ -1,10 +1,10 @@
-# Second Chair Ears (spike)
+# Second Chair Ears
 
 An **optional** Max for Live audio effect. Drop it on a track and Second Chair can read that track's level and rough tone from the audio itself, with no export. The tool is `live_listen`.
 
 - It needs Max for Live (Live Suite, or Standard with the add-on). Without the device, `live_listen` refuses and every other tool works as before.
 - It never changes the sound: audio passes straight through. It never changes the set.
-- **Status: a spike.** It has been tried in real Live. Its peak reading still needs a controlled comparison with Live's displayed meter.
+- **Status:** checked in real Live 12.4 on one Windows PC (see "Checked in real Live"). Not tried on a Mac.
 
 ## What's here
 
@@ -30,7 +30,7 @@ Nothing is sent back to the device. The UDP side has no token, like Chord Coach:
 
 ## Check it in real Live
 
-Ask the user before each step that touches their Live. Use a new empty set.
+Ask the user before each step that touches their Live. Use a new empty set. Steps 1 to 4 have been done once; steps 5 to 8 have not.
 
 1. Copy `Second Chair Ears.amxd` and `ears.js` together into the User Library, for example `Presets\Audio Effects\Max Audio Effect\Second Chair Ears\`.
 2. Install this branch's Remote Script and **fully restart Live** (a script change needs it).
@@ -46,11 +46,14 @@ Ask the user before each step that touches their Live. Use a new empty set.
 7. Put Ears on two tracks. Both should show.
 8. Delete the device. After 3 seconds `live_listen` should refuse.
 
-## Known guesses
+## Checked in real Live (Live 12.4, Windows)
 
-- **The `.amxd` header.** The `aaaa` type code for an audio effect comes from forum posts and other people's parsers, not from Ableton. Chord Coach proves the same method for `mmmm`.
-- **`js ears.js` in a hand-written patch.** Chord Coach uses `jsui`; plain `js` should load the same way, but that is untested.
-- **OSC types.** The docs say `udpsend` sends OSC but don't spell out the type tags. The receiver takes ints and floats, as Chord Coach's does.
-- **Comparing levels.** Ears measures audio at its position in the device chain, before the track fader. Devices after it and the fader can change Live's track meter reading. Compare Ears last in the chain with the track fader at 0 dB, using the same steady signal and time window. `live_get_levels` converts Live's 0–1 meter value using the volume fader scale as a guess; its `about` value is not a calibrated reference.
+- The built `.amxd` loads from the User Library, `js ears.js` runs, and the bridge receives the OSC reports. So three build guesses held: the `aaaa` type code, plain `js` in a hand-written patch, and `udpsend`'s number types.
+- **Peak:** with Operator's sine, Ears last in the chain and the fader at 0 dB, Ears read -13.6 dB and Live's own peak readout showed -13.6. Over 14 levels from -62 to +4 dB, Ears and Live's meter stayed on one straight line.
+- **RMS:** 3.0 dB under the peak on a sine, as it should be.
+
+## Still guesses
+
+- **Comparing levels.** Ears measures audio at its position in the device chain, before the track fader. Devices after it and the fader change Live's track meter, so the two only match with Ears last and the fader at 0 dB.
 - **Band levels.** `fffb~`'s gain scale isn't documented, so the 8 band numbers are for comparing with each other, not true dB per band.
 - **RMS window.** 12000 samples is a quarter second at 48 kHz and a little more at 44.1 kHz.

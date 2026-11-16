@@ -12,7 +12,7 @@ Use for "I want to record a verse", "my mic is too quiet", "set up the guitar", 
 ## Gain staging before the take
 
 1. The user sings or plays the loudest part with the track armed.
-2. `live_get_levels` on that track: aim for **"healthy"** (peaks well under the top, roughly -18 to -10 dB as a guess at Live's meter scale). "Hot" or "near the top": turn the interface's gain knob down, not Live's fader. "Low": up a little.
+2. `live_get_levels` on that track: aim for **"healthy"** (peaks well under the top, between -18 and -3 dB on Live's meter; around -12 dB leaves good room). "Hot" or "near the top": turn the interface's gain knob down, not Live's fader. "Low": up a little.
 3. Report by name and word, never by meter colour.
 
 ## Takes

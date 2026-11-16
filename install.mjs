@@ -224,6 +224,8 @@ function registerClaude() {
   const files = desktopConfigs();
   if (!files.length) return skip("Claude desktop app: not found on this computer. If you install it later, run this installer again.");
   for (const f of files) editJson(f, "Claude desktop app", (j) => { j.mcpServers ??= {}; dropOld(j); j.mcpServers[NAME] = { ...(j.mcpServers[NAME] ?? {}), ...entry(j.mcpServers[NAME]) }; });
+  // Seen on the Microsoft Store build: an open app wrote its old settings back later, and the entry was gone again.
+  if (WIN && files.some((f) => /Claude-Data/i.test(f))) console.log("          If the Claude desktop app is open now, quit it fully before you reopen it. If the tools go missing there later, run this installer again with Claude closed.");
   // Other agents are a one-line command for the user; this installer only edits Claude's files.
   if (exists(path.join(HOME, ".codex"))) skip(`Codex: I don't edit its settings. To add the tools, run:  codex mcp add ${NAME} -- node "${SERVER}"`);
 }
