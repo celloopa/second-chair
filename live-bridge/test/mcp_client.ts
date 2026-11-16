@@ -325,6 +325,7 @@ await expect("ok", "live_delete_device", { track: tlTrack, device: "Compressor",
 const lv = js(await expect("ok", "live_get_levels", { seconds: 0.3 }, "levels"));
 if ((!lv.is_playing && !lv.warning) || !(lv.levels ?? []).some((r: any) => r.track === "main" && r.peak > 0)) { failed++; console.log("!! levels should include Main and warn when Live isn't playing"); }
 const lvReturn = (lv.levels ?? []).find((r: any) => r.kind === "return"), lvMain = (lv.levels ?? []).filter((r: any) => typeof r.track === "number").length;
+if (!(lv.levels ?? []).some((r: any) => r.audio === false && r.reads === "no audio")) { failed++; console.log("!! a MIDI track with no instrument should read no audio, not fail"); }
 if (!lvReturn) { failed++; console.log("!! levels should include the return tracks"); }
 else {
   await expect("ok", "live_get_levels", { track: lvReturn.track, seconds: 0.2 }, "\"kind\": \"return\"");

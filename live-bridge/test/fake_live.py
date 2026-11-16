@@ -115,7 +115,16 @@ class Track:
         self.devices.insert(len(self.devices) if index == -1 else index, d)
         return d
     def delete_device(self, index): del self.devices[index]
-    output_meter_level, output_meter_left, output_meter_right = 0.62, 0.6, 0.62
+    @property
+    def has_audio_output(self): return not self.has_midi_input or any(d.type == INSTRUMENT for d in self.devices)
+    output_meter_level = 0.62
+    def _side_meter(self, v):  # like Live: a MIDI track with no instrument has no left or right meter
+        if not self.has_audio_output: raise RuntimeError("Tracks with MIDI output have no 'output_meter_left' property!")
+        return v
+    @property
+    def output_meter_left(self): return self._side_meter(0.6)
+    @property
+    def output_meter_right(self): return self._side_meter(0.62)
     def duplicate_clip_to_arrangement(self, clip, time):  # like Live: covers what was there
         c = ArrClip(clip, time)
         self.arrangement_clips = [x for x in self.arrangement_clips if not (x.start_time < c.end_time and x.end_time > c.start_time)]

@@ -20,7 +20,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.10.1";
+const VERSION = "0.10.2";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -289,6 +289,7 @@ function earsRow(e: EarsRow) {
 // Measured in Live 12.4 with a sine at 14 levels from -62 to +4 dB, against Second Chair Ears and Live's own peak readout.
 const meterDb = (v: number) => Math.round((76 * v - 70) * 10) / 10;
 function levelRow(r: Record<string, unknown>) {
+  if (r.audio === false) return r; // a MIDI track with no instrument: the bridge (0.10.2) already says "no audio"
   const peak = Number(r.peak) || 0;
   const silent = peak < 0.005, db = meterDb(peak);
   return { ...r, peak_db: silent ? null : db, about: silent ? "silent" : `${db} dB`,

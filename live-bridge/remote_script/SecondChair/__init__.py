@@ -30,7 +30,7 @@ from collections import deque
 import Live
 from _Framework.ControlSurface import ControlSurface
 
-VERSION = "0.10.1"
+VERSION = "0.10.2"
 HOST = "127.0.0.1"
 PORT = 9885
 OSC_IN_PORT = 9886    # Chord Coach device -> bridge
@@ -2120,20 +2120,35 @@ class SecondChair(ControlSurface):
         for i in (range(len(every)) if track is None else [int(track)]):
             kind = "track" if i < n else "return" if i < n + returns else "main"
             pick.append(("main" if kind == "main" else i, kind, every[i]))
+        # A MIDI track with no instrument puts out MIDI, not audio. Live raises on its left and right meters (0.10.2).
+        audio = dict((k, bool(getattr(t, "has_audio_output", True))) for k, _, t in pick)
         peaks = dict((k, [0.0, 0.0, 0.0]) for k, _, _ in pick)
+
+        def meter(t, name):
+            try:
+                return float(getattr(t, name, 0.0) or 0.0)
+            except Exception:
+                return 0.0
         end = time.time() + secs
         while True:
             for k, _, t in pick:
+                if not audio[k]:
+                    continue
                 p = peaks[k]
-                p[0] = max(p[0], float(getattr(t, "output_meter_level", 0.0) or 0.0))
-                p[1] = max(p[1], float(getattr(t, "output_meter_left", 0.0) or 0.0))
-                p[2] = max(p[2], float(getattr(t, "output_meter_right", 0.0) or 0.0))
+                p[0] = max(p[0], meter(t, "output_meter_level"))
+                p[1] = max(p[1], meter(t, "output_meter_left"))
+                p[2] = max(p[2], meter(t, "output_meter_right"))
             if time.time() >= end:
                 break
             yield
         out = []
         for k, kind, t in pick:
             lvl, l, r = peaks[k]
+            if not audio[k]:
+                out.append({"track": k, "kind": kind, "name": str(t.name), "audio": False, "peak": 0.0, "left": 0.0,
+                            "right": 0.0, "peak_db": None, "about": "no audio: a MIDI track with no instrument",
+                            "reads": "no audio"})
+                continue
             silent = lvl < 0.005
             db = round(76.0 * lvl - 70.0, 1)
             out.append({"track": k, "kind": kind, "name": str(t.name), "peak": round(lvl, 3), "left": round(l, 3),

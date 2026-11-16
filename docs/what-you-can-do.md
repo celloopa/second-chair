@@ -1,4 +1,4 @@
-# What you can do (up to 0.10.1)
+# What you can do (up to 0.10.2)
 
 Everything here works by asking Claude in plain words. You don't need the tool names; they're listed so you can see what's behind each request.
 

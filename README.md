@@ -6,7 +6,7 @@ Second Chair puts your AI agent inside your Live set. You ask in plain words. It
 
 In an orchestra, the second chair sits beside the lead player and backs them up. You lead.
 
-**Private beta, version 0.10.1. Please don't share it yet.**
+**Private beta, version 0.10.2. Please don't share it yet.**
 
 ## What you can ask
 
@@ -91,7 +91,7 @@ These are built into the tools and the guide:
 | Read this | For |
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Your agent: the whole setup, from survey to your studio profile |
-| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.10.1, by job, with things to say |
+| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.10.2, by job, with things to say |
 | [docs/needs-your-hands.md](docs/needs-your-hands.md) | What the tools can't do: what you do by hand, and what Claude can do with computer use switched on |
 | [docs/whats-next.md](docs/whats-next.md) | What's unproven, what could be patched in, and what's planned |
 | [live-bridge/README.md](live-bridge/README.md) | The technical notes: every tool and how it works inside |
@@ -137,7 +137,7 @@ To see what it would do without changing anything, add `--dry-run`.
 
 1. Quit Live fully if it's open, and open it again. Live only reads the script when it starts.
 2. Go to **Settings > Link, Tempo & MIDI**. Under **Control Surface**, pick **SecondChair** in an empty row. Leave its Input and Output on **None**.
-3. The bar at the bottom of Live says **"SecondChair 0.10.1 ready"**.
+3. The bar at the bottom of Live says **"SecondChair 0.10.2 ready"**.
 
 **B. In Claude**
 
@@ -245,7 +245,7 @@ Run the check first (above). Then:
 | What you see | What to do |
 |---|---|
 | SecondChair is missing from Live's Control Surface list | Live was open during the install, or the script went to a different User Library. Quit Live fully and reopen. Check Settings > Library for the User Library's location, and run the installer with `--user-library "<that folder>"`. |
-| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.10.1 ready". |
+| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.10.2 ready". |
 | Claude says "unknown action" or warns about versions | Live is still running an older script. Quit Live fully and open it again. |
 | Claude says "unauthorized" or the token is missing | Run the installer again, then restart Live. |
 | Claude has no `second-chair` tools | Quit Claude fully (tray icon too on Windows) and reopen. Run the check. If needed, add it by hand (above). |
