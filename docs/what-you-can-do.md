@@ -238,6 +238,15 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 - `live_menu` runs one of Live's menu commands by name, such as View > Browser, only when you ask. It never runs New, Open, Close Window or Quit.
 - Windows only for now. The Mac version is written but not tested.
 
+### More without the screen (Live script 0.11.0)
+
+- "Is Live waiting on something?": `live_status` says when Live shows a message box, and what it says. You answer it in Live.
+- "Select the kick clip": `live_select_clip` selects a Session clip, so a menu command like Separate Stems has something to work on.
+- "Put this WAV on track 3": `live_import_audio` puts a file from disk into an empty slot or at a bar on the Arrangement. A saved set keeps a copy in its project. It never covers clips.
+- "Get the notes out of this": `live_convert_to_midi` turns an audio clip into MIDI on a new track (harmony, melody or drums), like Live's Convert commands.
+- "Tighten this loop": `live_quantize_audio` moves an audio clip's note starts toward a grid, by an amount you choose.
+- Each of these is taken back with "take that back" (`live_revert`). They need the Live script 0.11.0: after an update, quit and reopen Live once.
+
 | Say | What happens |
 |---|---|
 | "Take that back." | Reverts the bridge's own last changes, newest first. Your own edits in between are left alone. |
@@ -264,7 +273,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-68 tools. "Reads" change nothing.
+73 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
@@ -273,11 +282,12 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 | Devices | `live_load_device`, `live_set_device_param`, `live_move_device`, `live_delete_device`, `live_set_routing` |
 | Automation | `live_record_automation`, `live_automate` |
 | Timeline and transport | `live_place_clip`, `live_arrangement_clip`, `live_play_bars`, `live_transport`, `live_fire_clip`, `live_fire_scene`, `live_create_scene`, `live_stop_track`, `live_set_tempo`, `live_set_scale` |
-| Audio | `live_bounce_track`, `live_align_audio`, `live_set_audio_clip`, `audio_analyze`, `song_analyze` |
+| Audio | `live_bounce_track`, `live_align_audio`, `live_set_audio_clip`, `live_import_audio`, `live_convert_to_midi`, `live_quantize_audio`, `audio_analyze`, `song_analyze` |
 | Sounds and samples | `live_load_sound`, `live_audition`, `live_build_drum_kit`, `live_swap_pad_sample`, `live_load_sample`, `live_set_simpler` |
 | MIDI | `live_write_clip`, `live_delete_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
-| Saving and Live's menus | `live_save`, `live_menu` |
+| Saving and Live's menus | `live_save`, `live_menu`, `live_select_clip` |
+| Checking the bridge | `live_probe` |
 | Undo | `live_revert`, `live_undo` |
 | You and the guide | `my_studio`, `my_plugins`, `studio_guide` |
 | Chord Coach (optional device) | `live_show_on_keys`, `live_what_am_i_playing` |

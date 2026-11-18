@@ -49,11 +49,72 @@ class Clip(Enveloped):
 import tempfile
 VOCAL = os.path.join(tempfile.gettempdir(), "fake-live-vocal_97_A#m.wav")
 open(VOCAL, "wb").write(b"RIFF fake")
+# Where the fake set "lives" (live_import_audio copies files into its Samples\Imported). Emptied at each start.
+FAKE_PROJECT = os.path.join(tempfile.gettempdir(), "fake-live-project-%d" % int(os.environ.get("SECOND_CHAIR_PORT", "9885")))
+import shutil
+shutil.rmtree(FAKE_PROJECT, ignore_errors=True)
+os.makedirs(FAKE_PROJECT)
+
+class WarpMarker:
+    def __init__(self, sample_time, beat_time): self.sample_time, self.beat_time = float(sample_time), float(beat_time)
 
 class AudioClip(Enveloped):
     def __init__(self, path, name):
         self.file_path, self.name, self.length, self.is_midi_clip, self.is_playing = path, name, 8.0, False, False
         self.pitch_coarse, self.warping, self.warp_mode = 0, True, 0
+        self.real_markers = [WarpMarker(0.0, 0.0)]  # (seconds, beats); one real marker, like kick_goob in ZZ Scratch
+    # Like real Live 12.4.16 (seen 2026-11-18): warp_markers lists the real markers plus a hidden end marker 1/32 beat
+    # after the last one, at the last real segment's speed (seconds per beat). With one real marker left it keeps the
+    # speed it had, so removing the last real marker leaves it at the speed of the segment that ended there. A clip
+    # keeps at least one real marker, the hidden one can't be removed, and a marker can't be added where one already
+    # sits at that sample time (the hidden one too, a guess).
+    HIDDEN_BEATS = 0.03125
+    end_rate = 0.5  # seconds per beat when only one real marker is left (120 BPM)
+    def _rate(self):
+        m = self.real_markers
+        if len(m) < 2: return self.end_rate
+        return (m[-1].sample_time - m[-2].sample_time) / (m[-1].beat_time - m[-2].beat_time)
+    @property
+    def warp_markers(self):
+        last = self.real_markers[-1]
+        return list(self.real_markers) + [WarpMarker(last.sample_time + self.HIDDEN_BEATS * self._rate(), last.beat_time + self.HIDDEN_BEATS)]
+    has_move = True  # Live 12.4.16 has move_warp_marker (probe, 2026-11-18); fake_move_markers switches it
+    def add_warp_marker(self, w):
+        if any(abs(x.sample_time - w.sample_time) < 1e-9 for x in self.warp_markers):
+            raise RuntimeError("there's a warp marker at that time already")
+        m = sorted(self.real_markers + [w], key=lambda x: x.sample_time)
+        if any(b.beat_time <= a.beat_time or b.sample_time <= a.sample_time for a, b in zip(m, m[1:])):
+            raise RuntimeError("warp markers must stay in order")
+        self.real_markers = m
+    def remove_warp_marker(self, beat_time):
+        if len(self.real_markers) <= 1: return  # "if possible"; the hidden marker isn't in real_markers, so it stays
+        if abs(self.real_markers[-1].beat_time - beat_time) <= 1e-9:
+            self.end_rate = self._rate()  # the last real one goes: the hidden marker keeps that segment's speed
+        self.real_markers = [x for x in self.real_markers if abs(x.beat_time - beat_time) > 1e-9]
+    def __getattr__(self, name):
+        if name == "move_warp_marker" and type(self).has_move:
+            return self._move
+        raise AttributeError(name)
+    def _move(self, beat_time, distance):
+        m = sorted(self.real_markers, key=lambda x: x.sample_time)
+        for k, x in enumerate(m):
+            if abs(x.beat_time - beat_time) < 1e-9:
+                nb = x.beat_time + distance
+                if (k and nb <= m[k - 1].beat_time) or (k + 1 < len(m) and nb >= m[k + 1].beat_time):
+                    raise RuntimeError("warp markers must stay in order")
+                x.beat_time = nb
+    def quantize(self, grid, amount):
+        """Like Live 12.4.16 on kick_goob (one real marker, its hit just after it; 2026-11-18): the first marker slides
+        back and a new one lands on the hit, so 2 listed markers become 3 (the hidden end marker follows). Needs Warp on."""
+        if not self.warping:
+            raise RuntimeError("Clip is not warped")
+        if not isinstance(grid, int) or not (0 <= grid <= 8) or not (0.0 <= amount <= 1.0):
+            raise RuntimeError("Python argument types did not match C++ signature")
+        self.last_quantize = (grid, amount)
+        d = 0.08 * amount
+        first = self.real_markers[0]
+        self.real_markers = [WarpMarker(first.sample_time, first.beat_time - d), WarpMarker(first.sample_time + 0.04, first.beat_time + d)] + \
+            [m for m in self.real_markers[1:] if m.sample_time > first.sample_time + 0.04 and m.beat_time > first.beat_time + d]
 
 class ArrClip(Enveloped):
     """A clip on the Arrangement timeline: a copy of a Session clip placed at start_time (in beats)."""
@@ -70,6 +131,11 @@ class Slot:
         import copy
         other.clip = copy.copy(self.clip)
     def delete_clip(self): self.clip = None
+    def create_audio_clip(self, path):  # Live 12: an audio file from disk into an empty slot
+        if self.clip is not None: raise RuntimeError("Clip slot is not empty")
+        if not os.path.isfile(path): raise RuntimeError("File does not exist")
+        self.clip = AudioClip(path, os.path.splitext(os.path.basename(path))[0])
+        return self.clip
     def fire(self):
         if self.clip: self.clip.is_playing = True
 
@@ -131,6 +197,16 @@ class Track:
         self.arrangement_clips.append(c)
         self.arrangement_clips.sort(key=lambda x: x.start_time)
     def delete_clip(self, clip): self.arrangement_clips.remove(clip)
+    def create_audio_clip(self, file_path, position):  # Live 12.2: an audio file onto the Arrangement (covers what was there, a guess)
+        if self.has_midi_input: raise RuntimeError("Track is not an audio track")
+        if not os.path.isfile(file_path): raise RuntimeError("File does not exist")
+        c = ArrClip(types.SimpleNamespace(name=os.path.splitext(os.path.basename(file_path))[0], is_midi_clip=False, length=8.0), position)
+        c.file_path, c.warping, c.warp_mode = file_path, True, 0
+        c.warp_markers = [WarpMarker(0.0, 0.0), WarpMarker(4.0, 8.0)]
+        self.arrangement_clips = [x for x in self.arrangement_clips if not (x.start_time < c.end_time and x.end_time > c.start_time)]
+        self.arrangement_clips.append(c)
+        self.arrangement_clips.sort(key=lambda x: x.start_time)
+        return c
     def stop_all_clips(self):
         for s in self.clip_slots:
             if s.clip: s.clip.is_playing = False
@@ -157,7 +233,9 @@ class Song:
         self.master_track = NoClipTrack("Main", midi=False)
         self.return_tracks = [self._return("A-Reverb"), self._return("B-Delay")]
         self.scenes = [types.SimpleNamespace(name="Intro", fire=lambda: None)]
-        self.view = types.SimpleNamespace(selected_track=self.tracks[0], selected_device=None)
+        self.view = types.SimpleNamespace(selected_track=self.tracks[0], selected_device=None, highlighted_clip_slot=None, detail_clip=None)
+        self.name = "my-song"  # Live 12's Song.name and Song.file_path ("" for a set that was never saved)
+        self.file_path = os.path.join(FAKE_PROJECT, "my-song.als")
         self.view.select_device = lambda d: setattr(self.view, "selected_device", d)
         self.undo_count = 0
         self.stuck_selection = False  # fake-only: the next browser load lands on track 0, as in real Live on 2026-11-12
@@ -496,8 +574,6 @@ def finish_loads():
                 if isinstance(prm, PluginParam): prm.tick()
 
 Live = types.ModuleType("Live")
-class WarpMarker:
-    def __init__(self, sample_time, beat_time): self.sample_time, self.beat_time = float(sample_time), float(beat_time)
 Live.Clip = types.SimpleNamespace(MidiNoteSpecification=Note, WarpMarker=WarpMarker)
 
 class ArrAudio(Enveloped):
@@ -550,8 +626,48 @@ def _fake_stack_markers(self, track):
 Live.Device = types.SimpleNamespace(DeviceType=DeviceType)
 Live.Track = types.SimpleNamespace(DeviceInsertMode=types.SimpleNamespace(default=0, selected_left=1, selected_right=2))
 APP = types.SimpleNamespace(get_major_version=lambda: 0, get_minor_version=lambda: 0, get_bugfix_version=lambda: 0,  # 0.0.0 tells mcp_client.ts it's the stand-in
-                            browser=BROWSER)
+                            browser=BROWSER,
+                            # Live's message-box properties (documented in the LOM): none open until fake_dialog opens one
+                            open_dialog_count=0, current_dialog_message="", current_dialog_button_count=0)
+SHOWN = []
+APP.view = types.SimpleNamespace(focused_document_view="Arranger")
+def _show_view(name):
+    if name not in ("Session", "Arranger", "Detail/Clip", "Detail/DeviceChain", "Browser"): raise RuntimeError("Unknown view")
+    SHOWN.append(name)
+    if name in ("Session", "Arranger"): APP.view.focused_document_view = name
+APP.view.show_view = _show_view
 Live.Application = types.SimpleNamespace(get_application=lambda: APP)
+
+# Live.Conversions, as Ableton's Push 2 script uses it (seen in the 12.4.16 exe). Like Boost.Python, a call with the
+# wrong argument types is refused before it runs. audio_to_midi_clip has a signature in its docstring; is_convertible_to_midi
+# has none here, so the bridge's fallback (trying the known forms) is tested too.
+class AudioToMidiType:
+    harmony_to_midi, melody_to_midi, drums_to_midi = 0, 1, 2
+def _boost_check(args, kinds, name):
+    if len(args) != len(kinds) or not all(isinstance(a, k) for a, k in zip(args, kinds)):
+        e = TypeError("Python argument types in\n    Conversions.%s(%s)\ndid not match C++ signature" % (name, ", ".join(type(a).__name__ for a in args)))
+        raise e
+def is_convertible_to_midi(*args):
+    _boost_check(args, (Song, (AudioClip, ArrClip, Clip)), "is_convertible_to_midi")
+    return not args[1].is_midi_clip
+is_convertible_to_midi.__doc__ = ""
+def audio_to_midi_clip(*args):
+    _boost_check(args, (Song, (AudioClip, ArrClip), int), "audio_to_midi_clip")
+    song, clip, kind = args
+    if clip.is_midi_clip: raise RuntimeError("Clip is not an audio clip")
+    t = Track(("Harmony", "Melody", "Drums")[kind])  # like Live: a new MIDI track with an instrument and the notes
+    t.devices = [Device(("Electric", "Electric", "Drum Rack")[kind], INSTRUMENT)]
+    t.clip_slots[0].clip = Clip(clip.length)
+    t.clip_slots[0].clip.name = clip.name
+    t.clip_slots[0].clip.add_new_notes([Note(60 + k, k * 1.0, 0.5, 100) for k in range(4)])
+    for i, x in enumerate(song.tracks):
+        if any(s.clip is clip for s in x.clip_slots) or clip in x.arrangement_clips:
+            song.tracks.insert(i + 1, t)
+            return None
+    song.tracks.append(t)
+audio_to_midi_clip.__doc__ = "audio_to_midi_clip( (Song)arg1, (Clip)arg2, (AudioToMidiType)arg3) -> None :\n    Creates a MIDI clip in a new MIDI track"
+Live.Conversions = types.SimpleNamespace(AudioToMidiType=AudioToMidiType, audio_to_midi_clip=audio_to_midi_clip,
+                                         is_convertible_to_midi=is_convertible_to_midi)
 sys.modules["Live"] = Live
 
 class ControlSurface:
@@ -663,6 +779,31 @@ def _fake_ears(self, track=None):
     EARS_ON["track"] = None if track is None else int(track)
     return {"ears_on_track": EARS_ON["track"]}
 SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_ears",)
+
+# 0.11.0 stand-ins: a message box, an unsaved set, an older Remote Script, and what quantize was given.
+def _fake_dialog(self, text=None, buttons=2):
+    APP.open_dialog_count = 1 if text else 0
+    APP.current_dialog_message, APP.current_dialog_button_count = (text or ""), (int(buttons) if text else 0)
+    return {"open": APP.open_dialog_count}
+def _fake_set_path(self, path=None):
+    SONG.file_path = os.path.join(FAKE_PROJECT, "my-song.als") if path is None else str(path)
+    return {"file_path": SONG.file_path, "project": FAKE_PROJECT}
+NEW_ACTIONS = ("probe", "select_clip", "import_audio", "convert_to_midi", "quantize_audio")
+def _fake_old_script(self, on=True):
+    SecondChair.ACTIONS = tuple(a for a in SecondChair.ACTIONS if a not in NEW_ACTIONS) if on else SecondChair.ACTIONS + NEW_ACTIONS
+    return {"old": bool(on)}
+def _fake_quantized(self, track, slot):
+    c = SONG.tracks[int(track)].clip_slots[int(slot)].clip
+    return {"last_quantize": getattr(c, "last_quantize", None), "shown": list(SHOWN)}
+def _fake_move_markers(self, on=True):
+    AudioClip.has_move = bool(on)
+    return {"move_warp_marker": AudioClip.has_move}
+SecondChair.SecondChair._a_fake_move_markers = _fake_move_markers
+SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_dialog", "fake_set_path", "fake_old_script", "fake_quantized", "fake_move_markers")
+SecondChair.SecondChair._a_fake_dialog = _fake_dialog
+SecondChair.SecondChair._a_fake_set_path = _fake_set_path
+SecondChair.SecondChair._a_fake_old_script = _fake_old_script
+SecondChair.SecondChair._a_fake_quantized = _fake_quantized
 SecondChair.SecondChair._a_fake_ears = _fake_ears
 threading.Thread(target=fake_ears, daemon=True).start()
 end = time.time() + float(sys.argv[1] if len(sys.argv) > 1 else 20)

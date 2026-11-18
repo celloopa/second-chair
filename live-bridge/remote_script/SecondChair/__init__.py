@@ -30,7 +30,7 @@ from collections import deque
 import Live
 from _Framework.ControlSurface import ControlSurface
 
-VERSION = "0.10.2"
+VERSION = "0.11.0"
 HOST = "127.0.0.1"
 PORT = 9885
 OSC_IN_PORT = 9886    # Chord Coach device -> bridge
@@ -66,6 +66,7 @@ ACTIONS = (
     "create_audio_track", "create_return_track", "set_monitoring",
     "audio_clip_info", "align_audio",
     "set_mute", "create_scene", "delete_clip", "get_ears",
+    "probe", "select_clip", "import_audio", "convert_to_midi", "quantize_audio",
 )
 # Actions that take several of Live's display ticks (browser loads finish on a later tick) get longer to answer.
 MONITOR_VALUES = {"in": 0, "auto": 1, "off": 2}  # Live's Track.monitoring_states
@@ -75,7 +76,9 @@ MIN_LFO_SECONDS = 0.8  # a recorded wobble needs about 8 display ticks per cycle
 CURVES = {"linear": lambda x: x, "ease_in": lambda x: x * x, "ease_out": lambda x: 1 - (1 - x) * (1 - x),
           "s": lambda x: x * x * (3 - 2 * x), "step": lambda x: 1.0 if x >= 1.0 else 0.0}
 LFO_SHAPES = ("sine", "triangle", "square", "saw_up", "saw_down", "random")
-ACTION_WAIT = {"get_levels": 9.0, "read_knob": 15.0, "play_range": MAX_RECORD_SECONDS + 30.0, "bounce_track": MAX_RECORD_SECONDS + 40.0, "record_automation": MAX_RECORD_SECONDS + 30.0, "load_sample": 18.0, "browse": 18.0, "list_tree": 18.0, "load_device": 18.0, "build_drum_kit": 45.0, "swap_pad_sample": 18.0}
+ACTION_WAIT = {"get_levels": 9.0, "read_knob": 15.0, "play_range": MAX_RECORD_SECONDS + 30.0, "bounce_track": MAX_RECORD_SECONDS + 40.0, "record_automation": MAX_RECORD_SECONDS + 30.0, "load_sample": 18.0, "browse": 18.0, "list_tree": 18.0, "load_device": 18.0, "build_drum_kit": 45.0, "swap_pad_sample": 18.0,
+               # Live may stop to read a long audio file or work out a conversion; the call blocks until it's done (0.11.0)
+               "import_audio": 120.0, "convert_to_midi": 120.0, "quantize_audio": 30.0}
 DEFAULT_WAIT = 10.0
 
 
@@ -841,6 +844,171 @@ class _Fixed(object):
         pass
 
 
+class _TrackConverted(object):
+    """A new MIDI track Live made from an audio clip (Convert to MIDI): revertible while nobody changed it."""
+    def __init__(self, song, track, label):
+        self.song, self.track, self.label = song, track, label
+        self.shape = self._shape()
+
+    def _shape(self):
+        t = self.track
+        notes = []
+        for cs in _slots(t):
+            if cs.has_clip:
+                n, _ = _gone(lambda: len(_clip_notes(cs.clip)))
+                notes.append(n)
+        for c in _arr(t):
+            n, _ = _gone(lambda: len(_clip_notes(c)))
+            notes.append(n)
+        return ([_dev_name(d) for d in t.devices], notes)
+
+    def _index(self):
+        for i, t in enumerate(self.song.tracks):
+            if t == self.track:
+                return i
+        return None
+
+    def state(self):
+        i, gone = _gone(self._index)
+        if gone or i is None:
+            return "back", None
+        if self._shape() != self.shape:
+            return "changed", "%s has different devices, clips or notes now" % self.label
+        return "left", None
+
+    def revert(self):
+        self.song.delete_track(self._index())
+
+
+def _markers(clip):
+    return [(float(m.sample_time), float(m.beat_time)) for m in (getattr(clip, "warp_markers", ()) or ())]
+
+
+MARKER_TOL = 1e-6
+
+
+def _same_markers(a, b):
+    return len(a) == len(b) and all(abs(x[0] - y[0]) < MARKER_TOL and abs(x[1] - y[1]) < MARKER_TOL for x, y in zip(a, b))
+
+
+def _real_markers(clip):
+    """The warp markers a user sees. Live's warp_markers list ends with a hidden marker 1/32 beat after the last real
+    one (seen in Live 12.4.16, 2026-11-18: a clip with one marker lists two). Live places that one itself."""
+    return _markers(clip)[:-1]
+
+
+class _WarpSnapshot(object):
+    """An audio clip's warp markers before and after a bridge change (quantize): revert puts the old ones back.
+    Seen in real Live 12.4.16 (2026-11-18): the list ends with a hidden end marker 1/32 beat after the last real one,
+    at the speed of the last real segment; it holds the clip's speed when only one real marker is left, and removing
+    the last real marker leaves it at the speed of the segment that ended there. Live keeps at least one real marker
+    and won't add one where another sits at the same sample time. So revert puts the old markers back with the old
+    hidden one as a real marker for a moment, removes the extra ones, then removes that one: Live's new hidden marker
+    then lands where the old one was."""
+    def __init__(self, clip, before, label):
+        self.clip, self.before, self.label = clip, list(before), label
+        self.after = _markers(clip)
+
+    def state(self):
+        now, gone = _gone(lambda: _markers(self.clip))
+        if gone:
+            return "back", "%s is gone" % self.label
+        if _same_markers(now, self.after):
+            return "left", None
+        if _same_markers(now, self.before):
+            return "back", None
+        return "changed", "the warp markers of %s were changed since" % self.label
+
+    def revert(self):
+        c = self.clip
+        spec = getattr(Live.Clip, "WarpMarker", None)
+        near = lambda a, b: abs(a - b) < MARKER_TOL
+        target = self.before  # the old real markers, then the old hidden one, put in as a real marker for now
+        wanted = lambda m: any(near(m[0], st) and near(m[1], bt) for st, bt in target)
+
+        def attempt(fn, *args):
+            try:
+                fn(*args)
+            except Exception:
+                pass
+
+        def add_missing():
+            for st, bt in target:
+                if spec is not None and not any(near(cst, st) for cst, _ in _markers(c)):
+                    attempt(c.add_warp_marker, spec(st, bt))
+        # 1. a marker still at an old sample time, but on another beat: move it back
+        if hasattr(c, "move_warp_marker"):
+            for st, bt in target:
+                for cst, cbt in _real_markers(c):
+                    if near(cst, st) and not near(cbt, bt):
+                        attempt(c.move_warp_marker, cbt, bt - cbt)
+        # 2. old markers with nothing at their sample time: add them
+        add_missing()
+        # 3. still on the wrong beat (no move, or Live refused it): take it out and put the old one in
+        for st, bt in target:
+            for cst, cbt in _real_markers(c):
+                if near(cst, st) and not near(cbt, bt) and spec is not None:
+                    attempt(c.remove_warp_marker, cbt)
+                    attempt(c.add_warp_marker, spec(st, bt))
+        # 4. the real markers that weren't there before, newest beat first
+        for cst, cbt in sorted([m for m in _real_markers(c) if not wanted(m)], key=lambda m: -m[1]):
+            attempt(c.remove_warp_marker, cbt)
+        # 5. an old marker that was blocked by the hidden one (now moved): add it
+        add_missing()
+        # 6. take out the old hidden marker's stand-in: Live's own hidden marker takes its place
+        if target and len(_real_markers(c)) == len(target):
+            attempt(c.remove_warp_marker, target[-1][1])
+        if not _same_markers(_markers(c), self.before):
+            raise ValueError("Live didn't take every old warp marker back on %s (before: %s, now: %s). Check it in Live; "
+                             "live_undo straight away may take it back, but Live can group several bridge changes into one "
+                             "undo step" % (self.label, _round_markers(self.before), _round_markers(_markers(c))))
+
+
+def _round_markers(ms):
+    return [[round(a, 6), round(b, 6)] for a, b in ms]
+
+
+def _doc_of(fn):
+    """A Boost.Python function's __doc__: its first line is the signature, e.g. 'f( (Song)arg1, (Clip)arg2) -> None :'."""
+    return str(getattr(fn, "__doc__", "") or "")
+
+
+def _arg_types(fn):
+    """The C++ argument types named in a Boost.Python signature, in order: ['Song', 'Clip', 'AudioToMidiType']."""
+    head = _doc_of(fn).split("->")[0]
+    return re.findall(r"\(\s*([A-Za-z_][\w.]*)\s*\)\s*\w+", head)
+
+
+def _call_by_types(fn, have, what):
+    """Calls fn with arguments picked by the types its docstring names ('Song' -> the song, 'Clip' -> the clip, ...).
+    If the docstring gives nothing usable, tries the forms in have['_forms'] in order. Boost.Python refuses a call
+    whose argument types don't match before running anything, so a wrong form fails without side effects."""
+    types_ = _arg_types(fn)
+    tried = []
+    if types_:
+        args = []
+        for t in types_:
+            key = t.split(".")[-1].lower()
+            if key not in have:
+                args = None
+                break
+            args.append(have[key])
+        if args is not None:
+            return fn(*args)
+        tried.append("signature %s" % ", ".join(types_))
+    last = None
+    for form in have.get("_forms", ()):
+        try:
+            return fn(*[have[k] for k in form])
+        except Exception as e:
+            if "did not match C++ signature" not in str(e) and type(e).__name__ != "ArgumentError":
+                raise
+            last = e
+            tried.append("(%s)" % ", ".join(form))
+    raise ValueError("couldn't work out how to call %s (tried %s): %s. Live's own description: %s"
+                     % (what, "; ".join(tried) or "nothing", last, _doc_of(fn)[:300] or "none"))
+
+
 def _clip_notes(clip):
     if hasattr(clip, "get_notes_extended"):
         return list(clip.get_notes_extended(0, 128, 0.0, clip.length))
@@ -1343,13 +1511,104 @@ class SecondChair(ControlSurface):
             clip.set_notes(tuple((p, s, d, v, False) for (p, s, d, v) in notes))
 
     # actions
+    def _set_identity(self):
+        """The open set's name and file from Live's API (0.11.0). An unsaved set has an empty path."""
+        s = self.song()
+        name = _safe(lambda: str(s.name), None)
+        path = _safe(lambda: str(s.file_path), None)
+        if name is None and path is None:
+            return None
+        return {"name": name, "path": path or ""}
+
+    def _dialog(self):
+        """Live's own message box, if one is open (read-only: nothing is pressed). None if this Live can't say."""
+        app = Live.Application.get_application()
+        count = _safe(lambda: int(app.open_dialog_count), None)
+        if count is None:
+            return None
+        out = {"open": count > 0, "count": count}
+        if count > 0:
+            out["text"] = _safe(lambda: str(app.current_dialog_message), None)
+            out["buttons"] = _safe(lambda: int(app.current_dialog_button_count), None)
+        return out
+
     def _a_ping(self):
         app = Live.Application.get_application()
-        return {
+        out = {
             "bridge": VERSION,
             "live": "%d.%d.%d" % (app.get_major_version(), app.get_minor_version(), app.get_bugfix_version()),
             "chord_coach": dict(zip(("device", "device_seen_ms_ago"), self._device_state())),
         }
+        ident = self._set_identity()
+        if ident is not None:
+            out["set_api"] = ident
+        dialog = self._dialog()
+        if dialog is not None:
+            out["dialog"] = dialog
+        return out
+
+    def _a_probe(self):
+        """Read-only: what this Live's Python API offers for the 0.11.0 tools. Calls nothing that changes Live."""
+        import sys
+        app = Live.Application.get_application()
+        s = self.song()
+        docs = {}
+
+        def doc(label, getter):
+            try:
+                d = _doc_of(getter())
+                docs[label] = d.strip()[:1500] if d.strip() else "(found, but it has no description)"
+            except Exception as e:
+                docs[label] = "missing (%s: %s)" % (type(e).__name__, e)
+
+        doc("ClipSlot.create_audio_clip", lambda: Live.ClipSlot.ClipSlot.create_audio_clip)
+        doc("Track.create_audio_clip", lambda: Live.Track.Track.create_audio_clip)
+        doc("Conversions.audio_to_midi_clip", lambda: Live.Conversions.audio_to_midi_clip)
+        doc("Conversions.is_convertible_to_midi", lambda: Live.Conversions.is_convertible_to_midi)
+        doc("Clip.quantize", lambda: Live.Clip.Clip.quantize)
+        doc("Clip.add_warp_marker", lambda: Live.Clip.Clip.add_warp_marker)
+        doc("Clip.remove_warp_marker", lambda: Live.Clip.Clip.remove_warp_marker)
+        doc("Clip.move_warp_marker", lambda: Live.Clip.Clip.move_warp_marker)
+        doc("Song.begin_undo_step", lambda: Live.Song.Song.begin_undo_step)
+        doc("Song.file_path", lambda: Live.Song.Song.file_path)
+        doc("Song.name", lambda: Live.Song.Song.name)
+        doc("Song.View.highlighted_clip_slot", lambda: Live.Song.Song.View.highlighted_clip_slot)
+        doc("Song.View.detail_clip", lambda: Live.Song.Song.View.detail_clip)
+        doc("Application.press_current_dialog_button", lambda: Live.Application.Application.press_current_dialog_button)
+        doc("Application.has_option", lambda: Live.Application.Application.has_option)
+        doc("Application.View.show_view", lambda: Live.Application.Application.View.show_view)
+        names = {}
+        for label, getter in (("Conversions", lambda: Live.Conversions),
+                              ("Conversions.AudioToMidiType", lambda: Live.Conversions.AudioToMidiType),
+                              ("Song.RecordingQuantization", lambda: Live.Song.RecordingQuantization),
+                              ("Clip.GridQuantization", lambda: Live.Clip.GridQuantization)):
+            try:
+                names[label] = sorted(n for n in dir(getter()) if not n.startswith("_"))[:80]
+            except Exception as e:
+                names[label] = "missing (%s: %s)" % (type(e).__name__, e)
+        names["song.view (clip, select, highlight, detail)"] = _safe(lambda: sorted(
+            n for n in dir(s.view) if re.search(r"clip|select|highlight|detail", n) and not n.startswith("_")), None)
+        values = {}
+        for label, getter in (("Song.name", lambda: s.name), ("Song.file_path", lambda: s.file_path),
+                              ("open_dialog_count", lambda: app.open_dialog_count),
+                              ("current_dialog_message", lambda: app.current_dialog_message),
+                              ("current_dialog_button_count", lambda: app.current_dialog_button_count),
+                              ("focused_document_view", lambda: app.view.focused_document_view)):
+            try:
+                v = getter()
+                values[label] = v if isinstance(v, (int, float, bool)) or v is None else str(v)
+            except Exception as e:
+                values[label] = "missing (%s: %s)" % (type(e).__name__, e)
+        imports = {}
+        for mod in ("ctypes", "subprocess", "_winapi"):
+            try:
+                __import__(mod)
+                imports[mod] = "works"
+            except Exception as e:
+                imports[mod] = "fails (%s: %s)" % (type(e).__name__, e)
+        return {"bridge": VERSION, "python": sys.version, "platform": sys.platform,
+                "docs": docs, "names": names, "values": values, "imports": imports,
+                "note": "Read-only. press_current_dialog_button was only looked up, never called."}
 
     def _a_get_session(self):
         s = self.song()
@@ -3298,6 +3557,281 @@ class SecondChair(ControlSurface):
                   [_Fixed("deleting a track", "use live_undo straight away to bring it back")])
         return {"deleted": int(track), "name": str(name), "had_devices": devices, "undo_steps": 1,
                 "note": "live_undo brings it back with its devices. Track numbers after it moved down by one."}
+
+    # ---- 0.11.0: select a clip, import audio from disk, convert to MIDI, quantize audio ----
+    # The exact calls were unknown until the probe ran in real Live, so each one checks what Live has, and a refusal
+    # passes on Live's own words.
+
+    def _selection(self):
+        s = self.song()
+        v = s.view
+        tracks = list(s.tracks)
+        out = {"selected_track": None, "highlighted_slot": None, "detail_clip": None}
+        sel = _safe(lambda: v.selected_track, None)
+        for i, t in enumerate(tracks):
+            if t == sel:
+                out["selected_track"] = i
+        hl = _safe(lambda: v.highlighted_clip_slot, None)
+        dc = _safe(lambda: v.detail_clip, None)
+        for i, t in enumerate(tracks):
+            for j, cs in enumerate(_slots(t)):
+                if hl is not None and cs == hl:
+                    out["highlighted_slot"] = {"track": i, "slot": j, "has_clip": bool(cs.has_clip)}
+                if dc is not None and cs.has_clip and cs.clip == dc:
+                    out["detail_clip"] = {"track": i, "slot": j, "name": str(dc.name)}
+        if dc is not None and out["detail_clip"] is None:
+            out["detail_clip"] = {"name": _safe(lambda: str(dc.name), None), "where": "not in a Session slot (an Arrangement clip)"}
+        app_view = _safe(lambda: Live.Application.get_application().view, None)
+        if app_view is not None:
+            out["focused_view"] = _safe(lambda: str(app_view.focused_document_view), None)
+        return out
+
+    def _a_select_clip(self, track, slot, show=True):
+        """Selects a Session clip slot the way a click does, so menu commands that act on the selection have a target."""
+        s = self.song()
+        t = self._track(track, regular=True)
+        cs = self._slot(track, slot)
+        v = s.view
+        if not hasattr(v, "highlighted_clip_slot"):
+            raise ValueError("this Live version can't select a clip slot from a script")
+        v.selected_track = t
+        v.highlighted_clip_slot = cs
+        if cs.has_clip and hasattr(v, "detail_clip"):
+            try:
+                v.detail_clip = cs.clip
+            except Exception:
+                pass
+        shown = []
+        if show:
+            app_view = _safe(lambda: Live.Application.get_application().view, None)
+            for name in ("Session",) + (("Detail/Clip",) if cs.has_clip else ()):
+                try:
+                    app_view.show_view(name)
+                    shown.append(name)
+                except Exception:
+                    pass
+        yield  # let Live update its view before reading it back
+        out = {"asked": {"track": int(track), "slot": int(slot)}, "clip": str(cs.clip.name) if cs.has_clip else None}
+        out.update(self._selection())
+        if shown:
+            out["shown"] = shown
+        hl = out.get("highlighted_slot") or {}
+        out["selected"] = hl.get("track") == int(track) and hl.get("slot") == int(slot)
+        if not cs.has_clip:
+            out["note"] = "That slot is empty: the slot is selected, but a command that needs a clip has nothing to act on."
+        return out
+
+    def _audio_info(self, c):
+        bpb = self._beats_per_bar()
+        out = {"name": str(c.name), "file": str(getattr(c, "file_path", "")), "warp": _safe(lambda: bool(c.warping), None),
+               "warp_mode": _safe(lambda: _warp_name(c.warp_mode), None),
+               "warp_markers": _safe(lambda: len(list(c.warp_markers)), None)}
+        length = _safe(lambda: float(c.length), None)
+        if length is not None:
+            out["length_beats"] = round(length, 3)
+            out["bars"] = round(length / bpb, 3)
+        return out
+
+    def _a_import_audio(self, path, track, slot=None, bar=None, length_beats=None):
+        """Generator: puts an audio file from disk into an empty Session slot, or onto the Arrangement at a bar
+        (never covering clips). The MCP server copies the file into the project first."""
+        path = str(path)
+        if not path.lower().endswith(AUDIO_FILES):
+            raise ValueError("%r isn't an audio file Live can load (%s)" % (_file_name(path), ", ".join(AUDIO_FILES)))
+        if not os.path.isfile(path):
+            raise ValueError("there's no file at %s" % path)
+        if (slot is None) == (bar is None):
+            raise ValueError("give slot (an empty Session slot) or bar (a place on the Arrangement), one of them")
+        t = self._track(track, regular=True)
+        if t.has_midi_input:
+            raise ValueError("track %d (%s) is a MIDI track; an audio file goes on an audio track" % (int(track), t.name))
+        fname = _file_name(path)
+        if slot is not None:
+            cs = self._slot(track, slot)
+            if cs.has_clip:
+                raise ValueError("track %d, slot %d already has a clip; pick an empty slot" % (int(track), int(slot)))
+            fn = getattr(cs, "create_audio_clip", None)
+            if fn is None:
+                raise ValueError("this Live version can't put an audio file in a slot from a script")
+            try:
+                fn(path)
+            except Exception as e:
+                raise ValueError("Live refused to put %s in track %d, slot %d: %s" % (fname, int(track), int(slot), e))
+            for _ in range(LOAD_TICKS):
+                if cs.has_clip:
+                    break
+                yield
+            if not cs.has_clip:
+                raise ValueError("Live didn't put %s in track %d, slot %d" % (fname, int(track), int(slot)))
+            c = cs.clip
+            label = "the clip %r in track %d, slot %d" % (str(c.name), int(track), int(slot))
+            self._log("imported %s into track %d, slot %d" % (fname, int(track), int(slot)), [_SlotClipMade(cs, c, label)])
+            return {"track": int(track), "slot": int(slot), "clip": self._audio_info(c)}
+        b = float(bar)
+        if not (1 <= b <= 10000):
+            raise ValueError("bar must be 1 or more")
+        fn = getattr(t, "create_audio_clip", None)
+        if fn is None:
+            raise ValueError("this Live version can't put an audio file on the Arrangement from a script (needs Live 12.2 or later)")
+        start = (b - 1) * self._beats_per_bar()
+        before = [(c, float(c.start_time), float(c.end_time)) for c in _arr(t)]
+        if length_beats is not None:
+            end = start + float(length_beats)
+            hit = [c for c, a, z in before if a < end - 1e-6 and z > start + 1e-6]
+            why = "between bar %g and bar %g, where the file would go" % (b, self._bar_of(end))
+        else:
+            hit = [c for c, a, z in before if z > start + 1e-6]
+            why = "at or after bar %g, and the file's length is unknown (only WAV lengths are read)" % b
+        if hit:
+            raise ValueError("track %d already has clips %s (%s), and the bridge never covers clips. Pick another bar or "
+                             "an empty audio track" % (int(track), why, ", ".join(
+                                 "%r at bar %g" % (c.name, self._bar_of(c.start_time)) for c in hit[:5])))
+        try:
+            made = fn(path, start)
+        except Exception as e:
+            raise ValueError("Live refused to put %s on track %d at bar %g: %s" % (fname, int(track), b, e))
+        new = []
+        for _ in range(LOAD_TICKS):
+            new = [c for c in _arr(t) if not any(c == x for x, _a, _z in before)]
+            if new:
+                break
+            yield
+        if not new and made is not None:
+            new = [made]
+        if not new:
+            raise ValueError("Live didn't put %s on track %d" % (fname, int(track)))
+        moved = [x for x, a, z in before if not any(x == c and abs(float(c.start_time) - a) < 1e-6 and abs(float(c.end_time) - z) < 1e-6
+                                                    for c in _arr(t))]
+        if moved:
+            self.song().undo()
+            raise ValueError("putting %s at bar %g changed clips already on track %d (%s), so it was undone (one live_undo step)"
+                             % (fname, b, int(track), ", ".join(repr(str(x.name)) for x in moved[:5])))
+        label = "%r on track %d at bar %g" % (fname, int(track), b)
+        self._log("imported " + label, [_ArrClipsMade(t, new, label)])
+        out = {"track": int(track), "bar": b, "clip": self._audio_info(new[0])}
+        out["clip"].update({"start_bar": self._bar_of(new[0].start_time), "end_bar": self._bar_of(new[0].end_time)})
+        return out
+
+    def _conversion_type(self, conv, kind):
+        want = "%s_to_midi" % kind
+        enum = getattr(conv, "AudioToMidiType", None)
+        if enum is not None and hasattr(enum, want):
+            return getattr(enum, want)
+        for n in dir(conv):
+            obj = getattr(conv, n, None)
+            if obj is not None and not callable(getattr(obj, want, None)) and hasattr(obj, want):
+                return getattr(obj, want)
+        raise ValueError("couldn't find Live's %s-to-MIDI type (Live.Conversions has: %s)"
+                         % (kind, ", ".join(n for n in dir(conv) if not n.startswith("_"))))
+
+    def _a_convert_to_midi(self, track, kind, slot=None, bar=None, name=None):
+        """Generator: Live's Convert Harmony / Melody / Drums to New MIDI Track, on an audio clip. Live makes a new MIDI
+        track (with an instrument) holding the notes; the audio clip isn't changed."""
+        kind = str(kind).strip().lower()
+        if kind not in ("harmony", "melody", "drums"):
+            raise ValueError("kind is harmony, melody or drums")
+        conv = getattr(Live, "Conversions", None)
+        fn = getattr(conv, "audio_to_midi_clip", None)
+        if fn is None:
+            raise ValueError("this Live version has no audio-to-MIDI conversion for scripts")
+        ref = {"track": track, "slot": slot} if slot is not None else {"track": track, "bar": bar, "name": name}
+        c, label, origin = self._audio_clip(ref)
+        s = self.song()
+        value = self._conversion_type(conv, kind)
+        have = {"song": s, "clip": c, "track": self._track(track), "audiotomiditype": value}
+        check = getattr(conv, "is_convertible_to_midi", None)
+        if check is not None:
+            have["_forms"] = (("song", "clip"), ("clip",), ("song", "track"))
+            ok = _call_by_types(check, have, "is_convertible_to_midi")
+            if not ok:
+                raise ValueError("Live says %s can't be converted to MIDI. Nothing was changed" % label)
+        have["_forms"] = (("song", "clip", "audiotomiditype"), ("clip", "audiotomiditype"))
+        before = list(s.tracks)
+        try:
+            _call_by_types(fn, have, "audio_to_midi_clip")
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError("Live refused to convert %s: %s" % (label, e))
+        new = []
+        for _ in range(LOAD_TICKS * 4):
+            new = [t for t in s.tracks if not any(t == x for x in before)]
+            if new:
+                break
+            yield
+        if not new:
+            raise ValueError("Live didn't make a new MIDI track from %s (it may still be working; check live_status)" % label)
+        yield  # let Live finish filling the track
+        out = {"converted": label, "kind": kind, "new_tracks": []}
+        parts = []
+        for t in new:
+            i = [k for k, x in enumerate(s.tracks) if x == t][0]
+            clips = []
+            for j, cs in enumerate(_slots(t)):
+                if cs.has_clip:
+                    n, _ = _gone(lambda: len(_clip_notes(cs.clip)))
+                    clips.append({"slot": j, "name": str(cs.clip.name), "notes": n})
+            for ac in _arr(t):
+                n, _ = _gone(lambda: len(_clip_notes(ac)))
+                clips.append({"start_bar": self._bar_of(ac.start_time), "name": str(ac.name), "notes": n})
+            out["new_tracks"].append({"track": i, "name": str(t.name), "devices": [_dev_name(d) for d in t.devices], "clips": clips})
+            parts.append(_TrackConverted(s, t, "the converted track %r" % str(t.name)))
+        self._log("converted %s to MIDI (%s)" % (label, kind), parts)
+        out["note"] = "The audio clip is unchanged. live_revert deletes the new track while nobody has changed it."
+        return out
+
+    def _quantize_value(self, grid):
+        g = str(grid).strip().lower().replace(" ", "").replace("triplet", "t").replace("th", "")
+        table = {"1/4": ("rec_q_quarter", 1, "g_quarter"), "1/8": ("rec_q_eight", 2, "g_eighth"),
+                 "1/8t": ("rec_q_eight_triplet", 3, None), "1/8+1/8t": ("rec_q_eight_eight_triplet", 4, None),
+                 "1/16": ("rec_q_sixtenth", 5, "g_sixteenth"), "1/16t": ("rec_q_sixtenth_triplet", 6, None),
+                 "1/16+1/16t": ("rec_q_sixtenth_sixtenth_triplet", 7, None), "1/32": ("rec_q_thirtysecond", 8, "g_thirtysecond")}
+        if g not in table:
+            raise ValueError("grid is one of %s" % ", ".join(sorted(table)))
+        rec, number, straight = table[g]
+        types_ = _safe(lambda: _arg_types(Live.Clip.Clip.quantize), []) or []
+        if any("GridQuantization" in x for x in types_):
+            if straight is None:
+                raise ValueError("this Live's quantize takes straight grids only (1/4, 1/8, 1/16, 1/32)")
+            return getattr(Live.Clip.GridQuantization, straight), g
+        enum = _safe(lambda: Live.Song.RecordingQuantization, None)
+        if enum is not None and hasattr(enum, rec):
+            value = getattr(enum, rec)
+            if len(types_) > 1 and types_[1] == "int":
+                value = int(value)  # the signature asks for a plain number
+            return value, g
+        return number, g
+
+    def _a_quantize_audio(self, track, grid, amount=100, slot=None, bar=None, name=None):
+        """Generator: Live's Quantize on an audio clip: moves its warp markers (note starts) toward the grid. The old
+        markers are kept so live_revert can put them back."""
+        ref = {"track": track, "slot": slot} if slot is not None else {"track": track, "bar": bar, "name": name}
+        c, label, origin = self._audio_clip(ref)
+        if not hasattr(c, "quantize"):
+            raise ValueError("this Live version can't quantize a clip from a script")
+        a = float(amount)
+        if not (1 <= a <= 100):
+            raise ValueError("amount is a percent, 1 to 100")
+        value, g = self._quantize_value(grid)
+        if not _safe(lambda: bool(c.warping), False):
+            raise ValueError("%s has Warp off. Quantizing audio moves its warp markers, so Warp must be on: switch it on "
+                             "with live_set_audio_clip (warp: true), then quantize. Nothing was changed" % label)
+        before = _markers(c)
+        try:
+            c.quantize(value, a / 100.0)
+        except Exception as e:
+            raise ValueError("Live refused to quantize %s: %s" % (label, e))
+        yield
+        after = _markers(c)
+        out = {"clip": str(c.name), "grid": g, "amount_percent": a, "warp_markers_before": len(before), "warp_markers_after": len(after)}
+        if _same_markers(after, before):
+            out["changed"] = False
+            out["note"] = "Live changed nothing: the note starts may already sit on the grid. Nothing to revert."
+            return out
+        self._log("quantized %s to %s at %g%%" % (label, g, a), [_WarpSnapshot(c, before, label)])
+        out["changed"] = True
+        out["note"] = "Live moved the clip's warp markers toward the grid. Listen for stretched or squashed sounds; live_revert puts the old markers back."
+        return out
 
     # ---- Live's browser: find and load devices and samples ----
     #

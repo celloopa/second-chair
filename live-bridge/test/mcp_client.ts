@@ -559,6 +559,109 @@ await fakeOnly("fake_ears", {}); // the device is removed: after 3 s of silence 
 await new Promise((r) => setTimeout(r, 3400));
 await expect("refused", "live_listen", {}, "no Second Chair Ears device is reporting");
 
+// 0.12.0 (Remote Script 0.11.0): set identity and dialogs from the API, select, import, convert, quantize.
+{
+  const st = js(await expect("ok", "live_status", {}, "\"dialog\""));
+  const project = (await fakeAsk("fake_set_path")).project as string;
+  if (st.set?.name !== "my-song" || st.set?.unsaved !== true || st.set?.path !== path.join(project, "my-song.als") || !/API/.test(st.set?.source)) { failed++; console.log("!! live_status should take the set's name and path from Live's API, and the * from the title: " + JSON.stringify(st.set)); }
+  if (st.dialog?.open !== false || st.dialog?.source !== "Live's API") { failed++; console.log("!! live_status should say no message box is open: " + JSON.stringify(st.dialog)); }
+  if (st.set_api || st.version_warning) { failed++; console.log("!! live_status shouldn't pass on the raw set_api, or warn with a current script"); }
+  await fakeAsk("fake_dialog", { text: "This action will stop audio. Proceed?", buttons: 2 });
+  const dl = js(await expect("ok", "live_status", {}, "This action will stop audio")).dialog;
+  if (dl?.open !== true || dl?.buttons !== 2 || !/answer it in Live/.test(dl?.note)) { failed++; console.log("!! live_status should report the open message box: " + JSON.stringify(dl)); }
+  await fakeAsk("fake_dialog", {});
+  // Message boxes in Live's log since it last started (before an older start don't count).
+  fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_LOG!, "2026-11-18T05:00:00.000001: info: Message Box: an old one\n2026-11-18T06:00:00.000001: info: Started: Live 12.4.16 Build: x\n2026-11-18T06:01:02.123456: info: Message Box: Live unexpectedly quit. Would you like to recover your work?\n");
+  const lg = js(await expect("ok", "live_status", {}, "recover your work")).dialog?.log?.message_boxes_since_live_started ?? [];
+  if (lg.length !== 1 || lg[0].at !== "2026-11-18T06:01:02.123456" || typeof lg[0].seconds_ago !== "number") { failed++; console.log("!! live_status should list only the log's message boxes since Live started: " + JSON.stringify(lg)); }
+  const unsaved = (await fakeAsk("fake_set_path", { path: "" }));
+  const un = js(await expect("ok", "live_status", {}, "\"untitled\": true")).set;
+  if (!un?.warning || un?.path !== "") { failed++; console.log("!! a set with no file should be untitled, with the warning: " + JSON.stringify(un) + JSON.stringify(unsaved)); }
+  await fakeAsk("fake_set_path");
+
+  const probe = js(await expect("ok", "live_probe", {}, "\"python\""));
+  if (!probe.docs?.["Conversions.audio_to_midi_clip"]?.includes("(Song)arg1") || probe.imports?.subprocess !== "works" || probe.values?.["Song.name"] !== "my-song") { failed++; console.log("!! live_probe should read docstrings, values and imports: " + JSON.stringify(probe).slice(0, 400)); }
+  if (!/missing/.test(probe.docs?.["ClipSlot.create_audio_clip"] ?? "")) { failed++; console.log("!! live_probe should say missing for a name the stand-in lacks, and carry on"); }
+  await fakeAsk("fake_old_script", { on: true });
+  await expect("refused", "live_probe", {}, "needs the Second Chair script 0.11.0 or newer");
+  await fakeAsk("fake_old_script", { on: false });
+
+  const tracks = js(await expect("ok", "live_status", {}, "Bass guitar")).session.tracks as any[];
+  const bass = tracks.findIndex((t) => t.name === "Bass guitar"), keys = tracks.findIndex((t) => t.name === "Keys");
+  const vl = (js(await expect("ok", "live_get_track", { track: bass }, "vocal loop")).clips as any[]).find((c) => c.name === "vocal loop").slot; // scenes added earlier moved it
+  const free = (js(await expect("ok", "live_get_track", { track: bass }, "slot_count")).clips as any[]).map((c) => c.slot);
+  const [s1, s2, s3] = [0, 1, 2, 3, 4, 5, 6, 7].filter((k) => !free.includes(k));
+  const sel = js(await expect("ok", "live_select_clip", { track: bass, slot: vl }, "\"selected\": true"));
+  if (sel.detail_clip?.name !== "vocal loop" || sel.selected_track !== bass || sel.focused_view !== "Session" || sel.highlighted_slot?.has_clip !== true) { failed++; console.log("!! live_select_clip should select the slot, show the clip and the Session view: " + JSON.stringify(sel)); }
+  await expect("ok", "live_select_clip", { track: bass, slot: s1, show: false }, "That slot is empty");
+  await expect("refused", "live_select_clip", { track: bass, slot: 99 }, "doesn't exist");
+
+  // Import from disk: copied into the project once, never over a different file, refused into a full slot or a MIDI track.
+  const wav = path.join(os.tmpdir(), `second-chair-import-${process.pid}.wav`);
+  writeWav16(wav, new Float32Array(44100 * 2).map((_, i) => Math.sin(i / 20) * 0.3));
+  const imp = js(await expect("ok", "live_import_audio", { file: wav, track: bass, slot: s1 }, "\"copied\": true"));
+  const copy = path.join(project, "Samples", "Imported", path.basename(wav));
+  if (imp.file?.used !== copy || !fs.existsSync(copy) || imp.clip?.file !== copy || imp.slot !== s1) { failed++; console.log("!! live_import_audio should copy into Samples\\Imported and load the copy: " + JSON.stringify(imp)); }
+  await expect("ok", "live_import_audio", { file: wav, track: bass, slot: s2 }, "The same file was already in the project");
+  writeWav16(wav, new Float32Array(44100).fill(0.1)); // a different file with the same name
+  const imp2 = js(await expect("ok", "live_import_audio", { file: wav, track: bass, slot: s3 }, "\"copied\": true"));
+  if (!String(imp2.file?.used).endsWith(` (2).wav`)) { failed++; console.log("!! a different file with the same name should get (2): " + imp2.file?.used); }
+  await expect("refused", "live_import_audio", { file: wav, track: bass, slot: vl }, "already has a clip");
+  await expect("refused", "live_import_audio", { file: wav, track: keys, slot: 6 }, "is a MIDI track");
+  await expect("refused", "live_import_audio", { file: wav, track: bass }, "Give slot");
+  if (fs.readdirSync(path.join(project, "Samples", "Imported")).length !== 2) { failed++; console.log("!! a refused import must not leave a copy behind"); }
+  await expect("ok", "live_revert", { steps: 3 }, "reverted");
+  const empty = js(await expect("ok", "live_get_track", { track: bass }, "clips")).clips.map((c: any) => c.slot);
+  if (empty.some((s: number) => [s1, s2, s3].includes(s))) { failed++; console.log("!! live_revert should take the imported clips out: " + empty); }
+  // Arrangement: at a bar on an empty audio track; a second one on top is refused; an unsaved set isn't copied to.
+  const at = js(await expect("ok", "live_create_audio_track", { name: "Imports" }, "track")).track;
+  const ar = js(await expect("ok", "live_import_audio", { file: wav, track: at, bar: 3 }, "\"start_bar\": 3"));
+  if (ar.clip?.end_bar !== 5) { failed++; console.log("!! the Arrangement import should run bars 3-5: " + JSON.stringify(ar.clip)); }
+  await expect("refused", "live_import_audio", { file: wav, track: at, bar: 4 }, "never covers clips");
+  // The WAV says 1 s (about 3 beats), so bar 2 passes the first check, but the stand-in makes an 8-beat clip that
+  // covers the one at bar 3: the bridge must notice, undo it and say so. (The stand-in's undo changes nothing.)
+  await expect("refused", "live_import_audio", { file: wav, track: at, bar: 2 }, "so it was undone");
+  await fakeAsk("fake_set_path", { path: "" });
+  await expect("ok", "live_import_audio", { file: wav, track: at, bar: 9 }, "never been saved");
+  await fakeAsk("fake_set_path");
+  await expect("ok", "live_revert", { steps: 3 }, "reverted"); // both clips, then the track
+  if (js(await expect("ok", "live_status", {}, "tracks")).session.tracks.some((t: any) => t.name === "Imports")) { failed++; console.log("!! live_revert should take the Imports track back"); }
+
+  // Convert to MIDI: a new MIDI track right after the audio track; live_revert deletes it while it's unchanged.
+  const cv = js(await expect("ok", "live_convert_to_midi", { track: bass, slot: vl, kind: "melody" }, "new_tracks"));
+  const nt = cv.new_tracks?.[0];
+  if (nt?.track !== bass + 1 || nt?.name !== "Melody" || nt?.clips?.[0]?.notes !== 4 || !nt?.devices?.length) { failed++; console.log("!! live_convert_to_midi should report the new track with its notes: " + JSON.stringify(cv)); }
+  await expect("ok", "live_revert", {}, "reverted");
+  if (js(await expect("ok", "live_status", {}, "tracks")).session.tracks.some((t: any) => t.name === "Melody")) { failed++; console.log("!! live_revert should delete the converted track"); }
+  const midiClip = (js(await expect("ok", "live_get_track", { track: keys }, "clips")).clips as any[]).find((c) => c.midi);
+  if (midiClip) await expect("refused", "live_convert_to_midi", { track: keys, slot: midiClip.slot, kind: "harmony" }, "is MIDI");
+  await expect("refused", "live_convert_to_midi", { track: bass, slot: vl, kind: "piano" }, "harmony, melody or drums");
+  await expect("refused", "live_convert_to_midi", { track: bass, kind: "drums" }, "Give slot");
+
+  // Quantize audio: Warp off is refused; warp markers move; live_revert puts the old ones back.
+  await expect("refused", "live_quantize_audio", { track: bass, slot: vl, grid: "1/3" }, "grid is one of");
+  await expect("refused", "live_quantize_audio", { track: bass, slot: vl, grid: "1/8", amount: 0 }, "percent, 1 to 100");
+  await expect("ok", "live_set_audio_clip", { track: bass, slot: vl, warp: false }, "\"warp\": false");
+  await expect("refused", "live_quantize_audio", { track: bass, slot: vl, grid: "1/8" }, "has Warp off");
+  await expect("ok", "live_set_audio_clip", { track: bass, slot: vl, warp: true }, "\"warp\": true");
+  const before = js(await expect("ok", "live_audio_clip_info", { clip: { track: bass, slot: vl } }, "warp_markers")).raw;
+  const qz = js(await expect("ok", "live_quantize_audio", { track: bass, slot: vl, grid: "1/16", amount: 50 }, "\"changed\": true"));
+  const given = (await fakeAsk("fake_quantized", { track: bass, slot: vl })).last_quantize;
+  if (qz.warp_markers_after !== 3 || given?.[0] !== 5 || given?.[1] !== 0.5) { failed++; console.log("!! quantize should pass grid 1/16 (5) and 50 % (0.5) to Live: " + JSON.stringify({ qz, given })); }
+  await expect("ok", "live_revert", {}, "reverted");
+  const back = js(await expect("ok", "live_audio_clip_info", { clip: { track: bass, slot: vl } }, "warp_markers"));
+  if (back.warp_markers !== 2 || JSON.stringify(back.raw.first_markers) !== JSON.stringify(before.first_markers)) { failed++; console.log("!! live_revert should put the old warp markers back: " + JSON.stringify(back.raw)); }
+  // Again without move_warp_marker (Live 12.4.16 has it; an older Live may not): the first marker is swapped instead.
+  await fakeAsk("fake_move_markers", { on: false });
+  await expect("ok", "live_quantize_audio", { track: bass, slot: vl, grid: "1/8t", amount: 100 }, "\"changed\": true");
+  await expect("ok", "live_revert", {}, "reverted");
+  const back2 = js(await expect("ok", "live_audio_clip_info", { clip: { track: bass, slot: vl } }, "warp_markers"));
+  if (back2.warp_markers !== 2 || JSON.stringify(back2.raw.first_markers) !== JSON.stringify(before.first_markers)) { failed++; console.log("!! live_revert (without move_warp_marker) should put the old warp markers back: " + JSON.stringify(back2.raw)); }
+  await fakeAsk("fake_move_markers", { on: true });
+  await expect("ok", "live_revert", { steps: 2 }, "reverted"); // Warp back as it was
+  fs.rmSync(wav, { force: true });
+}
+
 // Live's menu bar (live_menu, live_save): a stand-in menu. Real Live is never touched here.
 const item = (name: string, id: number, enabled = true) => ({ name, id, enabled, checked: false });
 fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version: "12.4.16", menus: [

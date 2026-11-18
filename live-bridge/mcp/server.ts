@@ -12,7 +12,8 @@ import { keyCard, parseRoot, SCALES, SHARPS, type ScaleId } from "../vendor/spur
 import { chordMidi, voicing } from "../vendor/spur/voicing.ts";
 import { createRecentPlaying } from "../vendor/spur/recent-playing.ts";
 import { captureLive } from "./screenshot.ts";
-import { openSet } from "./liveset.ts";
+import { openSet, mergeSet, type ApiSet } from "./liveset.ts";
+import { logMessageBoxes } from "./dialogs.ts";
 import { liveMenu, liveSave } from "./menu.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
@@ -22,8 +23,8 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.11.0";
-const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
+const VERSION = "0.12.0";
+const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
 // Where install.ps1 (Windows) and mac/install.sh put the token. Apps like HeyClicky start this server with a bare
@@ -311,21 +312,99 @@ function rootPc(r: unknown): number {
   return pc;
 }
 
+// ---------- 0.12.0: tools that need the 0.11.0 Remote Script ----------
+
+const NEW_SCRIPT = "0.11.0";
+/** A bridge call for a tool added with Remote Script 0.11.0: an older script gets a plain "update and restart" answer. */
+async function bridgeNew(tool: string, action: string, params: Record<string, unknown> = {}, waitSeconds = 12): Promise<unknown> {
+  try { return await bridge(action, params, waitSeconds); }
+  catch (e) {
+    if (/unknown action/.test((e as Error).message)) throw new Error(`${tool} needs the Second Chair script ${NEW_SCRIPT} or newer in Live, and Live is running an older one. Ask the user to update the Live script (run the installer again), then save, fully quit Live and open it again. Nothing was changed.`);
+    throw e;
+  }
+}
+
+/** A WAV file's length in seconds, from its header only (null for other formats or a header this can't read). */
+function wavSeconds(file: string): number | null {
+  try {
+    const fd = fs.openSync(file, "r"); const buf = Buffer.alloc(65536); const n = fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+    if (n < 12 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return null;
+    let pos = 12, byteRate = 0;
+    while (pos + 8 <= n) {
+      const id = buf.toString("ascii", pos, pos + 4), size = buf.readUInt32LE(pos + 4);
+      if (id === "fmt " && pos + 16 <= n) byteRate = buf.readUInt32LE(pos + 16);
+      if (id === "data") { const total = size === 0xffffffff || !size ? fs.statSync(file).size - pos - 8 : size; return byteRate ? total / byteRate : null; }
+      pos += 8 + size + (size % 2);
+    }
+    return null;
+  } catch { return null; }
+}
+
+/** Copies an audio file into the set's project (Samples\Imported), like Live's own "Collect files on import".
+ * Never overwrites: a different file with the same name gets " (2)", " (3)"... A file already in the project stays put. */
+function copyIntoProject(file: string, setPath: string): { use: string; copied: boolean; note: string } {
+  const project = path.dirname(setPath);
+  const rel = path.relative(project, file);
+  if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) return { use: file, copied: false, note: "The file is already inside the set's project folder, so it wasn't copied." };
+  const dir = path.join(project, "Samples", "Imported");
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = path.extname(file), base = path.basename(file, ext);
+  const size = fs.statSync(file).size;
+  for (let k = 1; k < 100; k++) {
+    const dest = path.join(dir, k === 1 ? `${base}${ext}` : `${base} (${k})${ext}`);
+    if (fs.existsSync(dest)) {
+      if (fs.statSync(dest).size === size && fs.readFileSync(dest).equals(fs.readFileSync(file))) return { use: dest, copied: false, note: `The same file was already in the project: ${dest}` };
+      continue;
+    }
+    fs.copyFileSync(file, dest, fs.constants.COPYFILE_EXCL);
+    return { use: dest, copied: true, note: `Copied into the project: ${dest}` };
+  }
+  throw new Error(`Too many files called "${base}${ext}" in ${dir} already. Nothing was changed.`);
+}
+
+const CLIP_REF = {
+  track: int("The clip's track, from 0"),
+  slot: int("Session clip: its slot, from 0"),
+  bar: { type: "number", description: "Arrangement clip instead: the bar it starts at (from live_get_arrangement)" },
+  name: { type: "string", description: "Arrangement clip: its name (a check against the wrong clip)" },
+};
+const clipRef = (a: Record<string, unknown>) => {
+  if ((a.slot === undefined) === (a.bar === undefined)) throw new Error("Give slot (a Session clip) or bar and name (an Arrangement clip), one of them.");
+  if (a.bar !== undefined && a.name === undefined) throw new Error("An Arrangement clip needs its name too (live_get_arrangement shows it).");
+  return a.slot !== undefined ? { track: a.track, slot: a.slot } : { track: a.track, bar: a.bar, name: a.name };
+};
+const GRIDS = ["1/4", "1/8", "1/8t", "1/8+1/8t", "1/16", "1/16t", "1/16+1/16t", "1/32"];
+
 const tools: Tool[] = [
   // --- Live: read ---
-  { name: "live_status", description: "Check the connection and read the Live set: which set is open (set: name, unsaved, untitled; if it has a warning, tell the user and ask before changing anything), tempo, time signature, playing state, song scale, every track (index, name, MIDI/audio, armed, monitor, devices, group), the return tracks and Main (returns and main: they have track numbers too, right after the regular tracks, so the device, knob, level and automation tools work on them), scenes and the selected track. Call this first.",
+  { name: "live_status", description: "Check the connection and read the Live set: which set is open (set: name, unsaved, untitled, and its file path; if it has a warning, tell the user and ask before changing anything), whether Live is waiting on a message box (dialog: open, its text and how many buttons; tell the user and let them answer it in Live), tempo, time signature, playing state, song scale, every track (index, name, MIDI/audio, armed, monitor, devices, group), the return tracks and Main (returns and main: they have track numbers too, right after the regular tracks, so the device, knob, level and automation tools work on them), scenes and the selected track. Call this first.",
     inputSchema: obj({}), run: async () => {
-      const [ping, set] = await Promise.all([bridge("ping"), openSet()]);
-      const running = (ping as { bridge?: string }).bridge;
+      const [pinged, title] = await Promise.all([bridge("ping").catch((e: Error) => e), openSet()]);
+      if (pinged instanceof Error) {
+        // Live may be stuck on a message box (a crash-recovery question, say) before or while the script runs.
+        const boxes = logMessageBoxes(3).since_live_started;
+        if (!boxes.length) throw pinged;
+        const last = boxes[boxes.length - 1];
+        throw new Error(`${pinged.message} Live's log shows a message box${last.seconds_ago !== null ? ` from ${last.seconds_ago} s ago` : ""}: "${last.text}". It may still be open and waiting for an answer: ask the user to look at Live and answer it there. (The log doesn't say when a box closes.)`);
+      }
+      const { set_api, dialog: apiDialog, ...ping } = pinged as { bridge?: string; set_api?: ApiSet; dialog?: { open: boolean; count: number; text?: string; buttons?: number } };
+      const set = mergeSet(title, set_api);
+      const running = ping.bridge;
       const older = (a: string, b: string) => { const x = a.split(".").map(Number), y = b.split(".").map(Number); for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0); return false; };
       const versions = running && older(running, NEEDS_BRIDGE)
-        ? { version_warning: `Live is running bridge ${running}, but these tools need ${NEEDS_BRIDGE} or newer. New tools may answer "unknown action". Ask the user to save, fully quit Live (check it's gone from the taskbar) and open it again.` }
+        ? { version_warning: `Live is running bridge ${running}, but these tools need ${NEEDS_BRIDGE} or newer. New tools may answer "unknown action". Ask the user to update the Live script (run the installer again), then save, fully quit Live (check it's gone from the taskbar) and open it again.` }
         : {};
       const who = profileName();
       const studio = readProfile() ? { studio_profile: who ? `yes (${who})` : "yes" } : { studio_profile: "none yet: call my_studio" };
       const named = (set as { warning?: string }).warning ? { ...set, warning: personalize((set as { warning: string }).warning, who) } : set;
       const guide = { plugin_guide: readPlugins() ? "yes: call my_plugins before recommending a plugin" : "none yet: call my_plugins" };
-      return { ...(ping as object), ...versions, ...studio, ...guide, set: named, session: await bridge("get_session") };
+      const logged = logMessageBoxes(3).since_live_started;
+      const dialog: Record<string, unknown> = apiDialog
+        ? { open: apiDialog.open, ...(apiDialog.open ? { text: apiDialog.text ?? null, buttons: apiDialog.buttons ?? null } : {}), source: "Live's API" }
+        : { open: null, source: "unknown: the Live script is older than 0.11.0, so only Live's log can say" };
+      if (apiDialog?.open) dialog.note = "Live is waiting on this message box. Tell the user what it says and let them answer it in Live; nothing here presses its buttons.";
+      if (logged.length) dialog.log = { message_boxes_since_live_started: logged, note: "From Live's Log.txt. The log doesn't say when a box closes, so these may be closed already." };
+      return { ...ping, ...versions, ...studio, ...guide, set: named, dialog, session: await bridge("get_session") };
     } },
   { name: "live_get_track", description: "One track in detail, including which clip slots hold clips. Tracks are numbered from 0.",
     inputSchema: obj({ track: int("Track index from 0") }, ["track"]), run: (a) => bridge("get_track", a) },
@@ -496,7 +575,7 @@ const tools: Tool[] = [
       preview: { type: "boolean", description: "Only list them, change nothing" },
       skip: { type: "boolean", description: "Drop them from the list without changing Live" } }),
     run: (a) => bridge("revert", { steps: a.steps ?? 1, preview: !!a.preview, skip: !!a.skip }, 20) },
-  { name: "live_undo", description: "Undo the last change in Live (same as Ctrl+Z). Prefer live_revert: Live's undo is global, so after the user has edited the set it takes back the user's own change instead. Use live_undo only right after a tool call, or for what live_revert can't take back (a pad sample swap). Live can group several quick bridge changes (made within a couple of seconds) into one undo step, so one undo may take back more than the last call: check with live_status after. A loading tool says how many steps it used in undo_steps; pass that as steps to take it all back.",
+  { name: "live_undo", description: "Undo the last change in Live (same as Ctrl+Z). Prefer live_revert: Live's undo is global, so after the user has edited the set it takes back the user's own change instead. Use live_undo only right after a tool call, or for what live_revert can't take back (a pad sample swap). Live can group several bridge changes into one undo step, even ones a minute apart, so one undo may take back more than the last call: undo one step at a time and check with live_status after each. A loading tool says how many steps it used in undo_steps; pass that as steps to take it all back.",
     inputSchema: obj({ steps: int("How many undo steps, 1-40 (default 1)", { default: 1 }) }), run: (a) => bridge("undo", a.steps ? { steps: a.steps } : {}) },
 
   // --- device settings: read and turn knobs (undoable with live_undo) ---
@@ -857,6 +936,51 @@ const tools: Tool[] = [
       const hits = findPlugins(guide, String(a.find));
       return { mcpContent: [{ type: "text", text: hits || `Nothing in the plugin guide matches "${String(a.find)}". Call my_plugins with no arguments to read all of it. Live's own devices may do the job.` }] };
     } },
+
+  // --- 0.12.0 (needs the 0.11.0 Remote Script): select, import, convert, quantize without the screen ---
+  { name: "live_select_clip", description: "Select a Session clip slot in Live, the way a click on it does: the track is selected, the slot highlighted, and the clip shown in Clip View (show: false leaves the views alone). Use it before a live_menu command that acts on the selected clip (Create > Separate Stems to New Audio Tracks, the Convert commands), so the command has a target. Returns what Live says is selected afterwards. Changes only the selection and which view shows, never the set.",
+    inputSchema: obj({ track: int("Track index, from 0"), slot: int("Slot index, from 0"),
+      show: { type: "boolean", description: "Also show Session View and Clip View (default true)" } }, ["track", "slot"]),
+    run: (a) => bridgeNew("live_select_clip", "select_clip", { track: a.track, slot: a.slot, show: a.show !== false }) },
+  { name: "live_import_audio", description: "Put an audio file from disk into the set with no browser and no dragging: into an EMPTY Session slot of an audio track (slot), or onto an audio track's Arrangement at a bar (bar, from 1), never covering clips. The file is a full path, or its name or words from it (looked up in the sample folders). When the set has been saved, the file is first copied into the project's Samples\\Imported folder (never overwriting), so the set keeps it. A long file can take Live a while to read. Only when the user asks. Revertible with live_revert (the clip goes; the copied file stays in the project).",
+    inputSchema: obj({ file: { type: "string", description: "Full path, or the file's name or words from it" },
+      track: int("An audio track, from 0"), slot: int("An empty Session slot, from 0"),
+      bar: { type: "number", description: "Or a bar on the Arrangement (from 1)" },
+      copy: { type: "boolean", description: "Copy the file into the project first (default true; only possible once the set is saved)" } }, ["file", "track"]),
+    run: async (a) => {
+      if ((a.slot === undefined) === (a.bar === undefined)) throw new Error("Give slot (an empty Session slot) or bar (a place on the Arrangement), one of them.");
+      const file = findAudioFile(String(a.file ?? ""));
+      const ping = await bridge("ping") as { set_api?: ApiSet };
+      if (!ping.set_api) await bridgeNew("live_import_audio", "import_audio", {}); // an old script answers "unknown action": say so
+      const setPath = String(ping.set_api?.path ?? "");
+      let use = file, copied = false, note: string;
+      if (a.copy === false) note = "Not copied (copy: false): Live plays the file from where it is.";
+      else if (!setPath) note = "The set has never been saved, so the file wasn't copied: Live plays it from where it is. After the user saves the set, File > Collect All and Save keeps a copy with the project.";
+      else ({ use, copied, note } = copyIntoProject(file, setPath));
+      const params: Record<string, unknown> = { path: use, track: a.track, ...(a.slot !== undefined ? { slot: a.slot } : { bar: a.bar }) };
+      if (a.bar !== undefined) {
+        const secs = wavSeconds(use);
+        if (secs !== null) {
+          const tempo = Number((await bridge("get_session") as { tempo?: number }).tempo) || 120;
+          params.length_beats = Math.round((secs * tempo / 60 + 1) * 1000) / 1000;
+        }
+      }
+      let out: Record<string, unknown>;
+      try { out = await bridgeNew("live_import_audio", "import_audio", params, 125) as Record<string, unknown>; }
+      catch (e) {
+        if (copied) { try { fs.unlinkSync(use); } catch { /* leave it */ } }
+        throw e;
+      }
+      return { ...out, file: { from: file, used: use, copied, note }, revert: "live_revert takes the clip out again." + (copied ? " The copied file stays in Samples\\Imported." : "") };
+    } },
+  { name: "live_convert_to_midi", description: "Live's Convert Harmony, Melody or Drums to New MIDI Track, on an audio clip, with no menus: Live works out the notes and puts them in a new MIDI track (with an instrument) next to it. kind: harmony (chords, from a pad or piano), melody (one note at a time: a voice, a bass, a lead), drums (kick, snare and hats, from a beat). The audio clip isn't changed. Live checks first that the clip can be converted. A long clip can take Live a while. Only when the user asks. Revertible with live_revert (it deletes the new track while nobody has changed it). Live's guess at the notes is a starting point: ask the user to listen.",
+    inputSchema: obj({ ...CLIP_REF, kind: { type: "string", enum: ["harmony", "melody", "drums"] } }, ["track", "kind"]),
+    run: (a) => bridgeNew("live_convert_to_midi", "convert_to_midi", { ...clipRef(a), kind: a.kind }, 125) },
+  { name: "live_quantize_audio", description: "Quantize an audio clip, like Live's Quantize on an audio clip: Live moves its warp markers (the note starts) toward a grid, by an amount. The clip's Warp must be on. grid: 1/4, 1/8, 1/8t, 1/8+1/8t, 1/16, 1/16t, 1/16+1/16t, 1/32; amount: percent, 1-100 (100 = right on the grid; 50 = halfway, which keeps some feel). It changes the clip itself, so only when the user asks. Revertible with live_revert (it puts the old warp markers back). Ask the user to listen for stretched or squashed sounds.",
+    inputSchema: obj({ ...CLIP_REF, grid: { type: "string", enum: GRIDS }, amount: { type: "number", description: "Percent, 1-100 (default 100)" } }, ["track", "grid"]),
+    run: (a) => bridgeNew("live_quantize_audio", "quantize_audio", { ...clipRef(a), grid: a.grid, amount: a.amount ?? 100 }, 35) },
+  { name: "live_probe", description: "Diagnostic (read-only): what this Live's Python API offers the newer tools: the descriptions (signatures) of create_audio_clip, the audio-to-MIDI conversion, Clip.quantize, undo steps and the message-box calls; the set's name and file; whether a message box is open; which Python modules the Live script can load. Changes nothing and presses nothing. For checking a new Live version or reporting a problem, not for music work.",
+    inputSchema: obj({}), run: () => bridgeNew("live_probe", "probe") },
 
   // --- seeing Live ---
   { name: "live_screenshot", description: "Take a picture of Ableton Live's window so you can see what the user sees: the set, a device, a plugin window, Settings. Only Live's own windows, never the rest of the screen. Works when other windows cover Live, not when it's minimised. windows: \"all\" adds Live's open plugin and device windows. Changes nothing.",

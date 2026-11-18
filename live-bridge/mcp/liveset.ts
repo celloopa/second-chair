@@ -1,4 +1,6 @@
-// Which Live set is open, read from Live's window title (Live's script API doesn't give the set's name).
+// Which Live set is open. Since Remote Script 0.11.0 the name and file come from Live's API (Song.name, Song.file_path:
+// an empty path means a new, never-saved set). Live's API has no "unsaved changes" flag, so the * still comes from
+// Live's window title, and an older Remote Script falls back to the title for everything.
 // Windows: "my-song* - Ableton Live 12 Suite" (the * means unsaved changes). A new set is "Untitled".
 // Mac: the window name, read through System Events (needs Accessibility permission; a guess until checked on the Mac).
 // SECOND_CHAIR_LIVE_TITLE overrides the title, for tests.
@@ -39,4 +41,23 @@ export function parseTitle(title: string): OpenSet {
 
 export async function openSet(): Promise<OpenSet> {
   try { return parseTitle(await liveTitle()); } catch (e) { return { unknown: `Couldn't read Live's window title (${(e as Error).message}).` }; }
+}
+
+/** The set as Live's API reports it (Remote Script 0.11.0+), with the * (unsaved changes) from the window title. */
+export type ApiSet = { name?: string | null; path?: string | null };
+export function mergeSet(title: OpenSet, api?: ApiSet | null): OpenSet & { path?: string; source?: string } {
+  if (!api || (api.name == null && api.path == null)) return title;
+  const file = String(api.path ?? "");
+  const known = !("unknown" in title);
+  const fromTitle = known ? title as { name: string; unsaved: boolean; untitled: boolean } : null;
+  if (file) {
+    const name = String(api.name || "").replace(/\.als$/i, "") || file.replace(/^.*[\\/]/, "").replace(/\.als$/i, "");
+    const out: Record<string, unknown> = { name, unsaved: fromTitle ? fromTitle.unsaved : null, untitled: false, path: file, source: "Live's API (the * from the window title)" };
+    if (!fromTitle) out.note = `Couldn't read Live's window title, so whether there are unsaved changes is unknown. ${(title as { unknown: string }).unknown}`;
+    return out as never;
+  }
+  const out: Record<string, unknown> = { name: String(api.name || "") || fromTitle?.name || "Untitled", unsaved: fromTitle ? fromTitle.unsaved : null, untitled: true, path: "",
+    source: "Live's API: the set has no file yet",
+    warning: "This is a new, unsaved set, not one of the user's songs. Live may have opened an empty set. Ask the user before changing anything here." };
+  return out as never;
 }
