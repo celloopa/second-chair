@@ -11,7 +11,7 @@ const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.p
 // live_menu / live_save read a stand-in menu, log and project folder, never the real Live that may be open alongside.
 const MENU_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-menu-test-"));
 Object.assign(process.env, { SECOND_CHAIR_LIVE_MENU: path.join(MENU_DIR, "menu.json"), SECOND_CHAIR_LIVE_LOG: path.join(MENU_DIR, "Log.txt"),
-  SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500" });
+  SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500", SECOND_CHAIR_STEMS_UIA: path.join(MENU_DIR, "stems-window.json") });
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
   env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "my-song* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
@@ -712,6 +712,79 @@ await expect("refused", "live_save", {}, "last saved by Ableton Live 12.1d1");
 fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ window: false })); // like fake_live: no Live window
 await expect("refused", "live_menu", { path: "View > Browser" }, "Live is not open");
 await expect("refused", "live_save", {}, "Save didn't go through");
+// Stem Separation (live_separate_stems, 0.13.0): a stand-in menu and Separate Stems window; fake_live plays the set.
+// Real Live and its window are never touched here (the UIA part has its own check: test/separate_uia.ps1).
+{
+  const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, UIA = process.env.SECOND_CHAIR_STEMS_UIA!;
+  const stemMenu = (version = "12.4.16", windows: string[] = []) => fs.writeFileSync(MENU, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version, windows,
+    menus: [{ name: "Create", items: [item("Separate Stems to New Audio Tracks", 2231)] }, { name: "Navigate", items: [item("Session View", 2332)] }], opens: { "Create > Separate Stems to New Audio Tracks": "Separate Stems" } }));
+  const stemWindow = (extra: Record<string, unknown> = {}) => fs.writeFileSync(UIA, JSON.stringify({ boxes: { vocals: true, drums: true, bass: true, others: true, merge: false, high: true }, pressed: [], ...extra }));
+  const uiaNow = () => JSON.parse(fs.readFileSync(UIA, "utf8"));
+  stemMenu(); stemWindow();
+  await fakeAsk("fake_set_path", {});
+  const st = js(await expect("ok", "live_status", {}, "\"session\""));
+  const project = path.dirname(st.set.path), stemDir = path.join(project, "Samples", "Processed", "Stems");
+  let src: { track: number; slot: number } | null = null, midi: { track: number; slot: number } | null = null;
+  for (const t of st.session.tracks as any[]) {
+    const tr = js((await rpc("tools/call", { name: "live_get_track", arguments: { track: t.index } })).result?.content?.[0]?.text ?? "{}");
+    for (const c of tr.clips ?? []) { if (!c.midi && !src) src = { track: t.index, slot: c.slot }; if (c.midi && !midi) midi = { track: t.index, slot: c.slot }; }
+  }
+  if (!src || !midi) { failed++; console.log("!! the fake set should have an audio and a MIDI Session clip"); }
+  else {
+    await expect("refused", "live_separate_stems", { track: src.track }, "Give track and slot");
+    await expect("refused", "live_separate_stems", { track: src.track, bar: 1 }, "Arrangement clips");
+    await expect("refused", "live_separate_stems", { ...midi }, "is MIDI");
+    await expect("refused", "live_separate_stems", { ...src, stems: ["guitar"] }, "Unknown stem");
+    await fakeAsk("fake_set_path", { path: "" });
+    await expect("refused", "live_separate_stems", { ...src }, "never been saved");
+    await fakeAsk("fake_set_path", {});
+    stemMenu("12.2.5");
+    await expect("refused", "live_separate_stems", { ...src }, "12.3 or later");
+    stemMenu("12.4.16", ["Export Audio/Video"]);
+    await expect("refused", "live_separate_stems", { ...src }, "\"Export Audio/Video\" open");
+    // A failed toggle: Cancel is pressed so nothing is left half set.
+    stemMenu(); stemWindow({ fail: "toggle" });
+    await expect("refused", "live_separate_stems", { ...src }, "Its Cancel was pressed");
+    if (uiaNow().pressed.join() !== "Cancel") { failed++; console.log("!! a failed toggle should press Cancel and nothing else: " + uiaNow().pressed); }
+    // The window already open (the user opened it): refused; then cancel presses its Cancel.
+    stemWindow();
+    await expect("ok", "live_menu", { path: "Create > Separate Stems to New Audio Tracks" }, "opened: \\\"Separate Stems");
+    await expect("refused", "live_separate_stems", { ...src }, "already open");
+    await expect("ok", "live_separate_stems", { action: "cancel" }, "\"pressed\": \"Cancel\"");
+    await expect("ok", "live_separate_stems", { action: "cancel" }, "Nothing to cancel");
+    if (uiaNow().pressed.join() !== "Cancel") { failed++; console.log("!! cancel should press Cancel once: " + uiaNow().pressed); }
+    // A real start: three stems, fast, no merge.
+    stemWindow();
+    const tempo = js(await expect("ok", "live_status", {}, "\"tempo\"")).session.tempo;
+    const go = js(await expect("ok", "live_separate_stems", { ...src, stems: ["vocals", "bass", "other"], quality: "fast" }, "\"started\": true"));
+    const w = uiaNow();
+    if (w.pressed.join() !== "Separate" || w.boxes.drums || w.boxes.high || !w.boxes.vocals || w.boxes.merge) { failed++; console.log("!! start should untick Drums and High Quality, then press Separate only: " + JSON.stringify(w)); }
+    if (go.files_land_in !== stemDir || go.tempo_before !== tempo) { failed++; console.log("!! start should say where the files land and the tempo before: " + JSON.stringify(go)); }
+    await expect("refused", "live_separate_stems", { ...src }, "isn't finished yet");
+    const c1 = js(await expect("ok", "live_separate_stems", { action: "check" }, "\"running\": true"));
+    if (c1.files !== "none yet" || (c1.waiting_for ?? []).join() !== "Vocals,Bass,Others") { failed++; console.log("!! the first check should have no files yet: " + JSON.stringify(c1)); }
+    await expect("ok", "live_status", {}, "\"stem_separation\"");
+    // Live's part: the stem files, the group track, and its tempo guess.
+    fs.mkdirSync(stemDir, { recursive: true });
+    const parts = synthStems(92, 4), made: Record<string, string> = {};
+    for (const [k, label] of [["vocals", "Vocals"], ["bass", "Bass"], ["others", "Others"]]) {
+      made[k] = path.join(stemDir, `vocal loop [2026-11-18 101500] (${label}).wav`);
+      writeWav16(made[k], (parts as any)[k]);
+    }
+    const c2 = js(await expect("ok", "live_separate_stems", { action: "check" }, "\"running\": true"));
+    if (c2.files?.length !== 3 || c2.waiting_for) { failed++; console.log("!! the second check should see three files: " + JSON.stringify(c2)); }
+    const g = (await fakeAsk("fake_stem_group", { files: made, song: "vocal loop" })).group;
+    await fakeAsk("fake_user_tempo", { bpm: 139.53 });
+    const done = js(await expect("ok", "live_separate_stems", { action: "check" }, "\"done\": true"));
+    if (done.group?.track !== g || done.group?.stems?.length !== 3 || !done.tempo?.changed || done.tempo?.before !== tempo || !/song_analyze \{stems: \d+\}/.test(done.next)) { failed++; console.log("!! the done check should give the group, the tempo change and the song_analyze hint: " + JSON.stringify(done)); }
+    if (!/Don't set it back without asking/.test(done.tempo?.note ?? "")) { failed++; console.log("!! a tempo change should say: offer, don't set it back without asking"); }
+    const sa = js(await expect("ok", "song_analyze", { stems: done.group.track }, "\"stem_group\""));
+    if (Object.keys(sa.stem_group?.stems ?? {}).length !== 3) { failed++; console.log("!! song_analyze should read the three stems from the group check gave: " + JSON.stringify(sa.stem_group)); }
+    await expect("ok", "live_separate_stems", { action: "check" }, "\"checked_again\": true");
+    await fakeAsk("fake_user_tempo", { bpm: tempo });
+    fs.rmSync(path.join(project, "Samples", "Processed"), { recursive: true, force: true });
+  }
+}
 fs.rmSync(MENU_DIR, { recursive: true, force: true });
 
 // a client without the token must be refused by the bridge itself

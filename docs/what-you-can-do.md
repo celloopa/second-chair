@@ -92,7 +92,7 @@ Tool: `song_analyze`. It runs on your computer and reads the file directly; Live
 
 **New.** Checked on a made-up loop and a few real songs. It can't decide a key from its relative (they share every note) or whether the beat feels half or double: you decide by ear.
 
-**Stems:** Live Suite 12.3 or later splits a song, by hand. Save the set, then right-click the clip and pick **Separate Stems to New Audio Tracks**. Tools can't start it. A 2-minute song can take several minutes. Claude then reads the stem files Live wrote, in about 10 to 20 seconds. Stems aren't perfectly clean, so a stray note may be leakage from another part.
+**Stems:** Live Suite 12.3 or later splits a song. Save the set first. Then say "split this into stems" (Windows): `live_separate_stems` runs Live's Separate Stems on a Session clip, with Live in the background and no screen control. Or right-click the clip and pick **Separate Stems to New Audio Tracks** yourself. High Quality takes about 9 minutes for a 2-minute song. Claude checks on it, then reads the stem files Live wrote, in about 10 to 20 seconds. Live may change the set's tempo to its own guess: Claude tells you and asks before setting it back. Stems aren't perfectly clean, so a stray note may be leakage from another part.
 
 Limits: **WAV files only** for now (16, 24 or 32-bit). **You export**; Live gives tools no export. Claude can tell you the export settings.
 
@@ -246,6 +246,7 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 
 - "Is Live waiting on something?": `live_status` says when Live shows a message box, and what it says. You answer it in Live.
 - "Select the kick clip": `live_select_clip` selects a Session clip, so a menu command like Separate Stems has something to work on.
+- "Split this song into stems": `live_separate_stems` runs Live's Stem Separation (Live Suite 12.3 or later, Windows, a saved set). It ticks the stems and the quality in Live's own window and presses Separate, then checks on the files until Live's new group track is there. Only when you ask. `live_revert` can't take it back: delete the group track in Live. Not yet on the Mac: there it tells you the clicks.
 - "Put this WAV on track 3": `live_import_audio` puts a file from disk into an empty slot or at a bar on the Arrangement. A saved set keeps a copy in its project. It never covers clips.
 - "Get the notes out of this": `live_convert_to_midi` turns an audio clip into MIDI on a new track (harmony, melody or drums), like Live's Convert commands.
 - "Tighten this loop": `live_quantize_audio` moves an audio clip's note starts toward a grid, by an amount you choose.
@@ -277,7 +278,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-73 tools. "Reads" change nothing.
+74 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
@@ -290,7 +291,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 | Sounds and samples | `live_load_sound`, `live_audition`, `live_build_drum_kit`, `live_swap_pad_sample`, `live_load_sample`, `live_set_simpler` |
 | MIDI | `live_write_clip`, `live_delete_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
-| Saving and Live's menus | `live_save`, `live_menu`, `live_select_clip` |
+| Saving and Live's menus | `live_save`, `live_menu`, `live_select_clip`, `live_separate_stems` |
 | Checking the bridge | `live_probe` |
 | Undo | `live_revert`, `live_undo` |
 | You and the guide | `my_studio`, `my_plugins`, `studio_guide` |

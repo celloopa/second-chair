@@ -257,7 +257,7 @@ What the music is doing, from a full mix. A port of the one-off scripts `key_tem
 
 ### Stems (0.12.1)
 
-`song_analyze` also reads the four stems Live's Stem Separation makes (`mcp/stems.ts`). Separate Stems itself stays a click in Live: the API can't start it. Save the set first, so the stems land in `<Project>\Samples\Processed\Stems\`.
+`song_analyze` also reads the four stems Live's Stem Separation makes (`mcp/stems.ts`). The API can't start Separate Stems. `live_separate_stems` (0.13.0, below) drives Live's menu and window instead, or the user clicks it. Save the set first, so the stems land in `<Project>\Samples\Processed\Stems\`.
 
 - **Input:** `stems` is the index of the group track Separate Stems made, or `{vocals, drums, bass, others}` WAV paths (any of the four). For a group, the server reads `get_session` (`is_group`, `in_group`), takes each child track's longest audio clip (`get_arrangement`, else `get_track`), and gets its file from `audio_clip_info`. Each stem's kind comes from the file name ("(Vocals)") or the track name's first word. No Remote Script change. `file` or `clip` is optional with stems; without it, the stems are added together for the full-mix readings.
 - **Levels:** RMS and peak per stem, and where it plays (half-second blocks within 30 dB of its loudest). Near silent means a peak under −40 dBFS or an RMS under −60 dBFS. A drumless song's Drums stem still holds a little leakage, well under these lines.
@@ -272,6 +272,33 @@ What the music is doing, from a full mix. A port of the one-off scripts `key_tem
   - Made-up stems: a chord pad, a bass line, a voice-like melody that leans the relative major, and drums that are near silent, a backbeat or half time. They come back right: G minor chords, a B♭ major melody, held F3 to F4, most time on B♭3, the bass G1 → E♭2 → C2 → D2 four times, the loop Gm → E♭ → Cm → D, and "no drums". A backbeat at 92 feels like 92, half time at 140 like 70, and a backbeat at 140 like 140. About 3 s for four 43-second stems.
   - Four real stems of a 2-minute song with no drums (High Quality, Live 12.4.16) matched the one-off Python scripts on every reading: levels, vocal range, bass line, both key leanings and tempo. About 9 s.
   - `mcp_client.ts`: a fake stem group (`fake_stem_group`) is read by index, two stems are read by path, and a track that isn't a group is refused.
+
+## Stem Separation without the screen (live_separate_stems, 0.13.0)
+
+Needs Live Suite 12.3 or later, Windows, a saved set and the 0.11.0 Live script. Server only (`mcp/separate.ts`, `mcp/separate.ps1`): no Remote Script change, so Live needs no restart.
+
+- **Start** (`{track, slot, stems, quality, merge}`):
+  1. Checks: the set has a file (`set_api.path` from `ping`), no message box (`dialog.open`), no Separate Stems window already open, no Save, Export or other such window (`menu.ps1 -Action windows`), no separation of its own still running, and Live 12.3 or later (from the menu read). The slot must hold an audio clip.
+  2. Notes the tempo, the track names and the files already in `Samples\Processed\Stems`, in `~/SecondChair/stem-job.json`.
+  3. `select_clip` (Remote Script 0.11.0) selects the slot.
+  4. `liveMenu("Navigate > Session View")`, then `liveMenu("Create > Separate Stems to New Audio Tracks")` (id 2231 in the 12.4.16 menu read; always fired by name). Both post WM_COMMAND. Then it waits up to 10 s for the window. Live ignored the Separate Stems command after `select_clip` alone; with Session View focused first, the window opened (seen 2026-11-18).
+  5. `separate.ps1 -Action set -Want ... -Separate` finds the window named "Separate Stems" (desktop children first, then inside Live's own top-level windows). It must belong to an `Ableton Live*` process and hold Buttons Separate and Cancel. It toggles the CheckBoxes Vocals, Drums, Bass, Others, "Merge Stems" and "Quality Mode" (On = High Quality) with UIA TogglePattern, only where they differ, and re-reads each one. Live 12.4.16 names them with a description ("Vocals, Include or exclude the Vocals stem."), so a box matches its name or its name before ", ". A greyed-out box that needs changing (Merge, on a short clip) is refused. Then it presses Separate with InvokePattern. Toggle and Invoke run on their own thread with a time limit, so a slow answer can't hang the server.
+  6. If a box is missing or a toggle doesn't take, it presses Cancel in that window and reports the failure. It never presses anything but Separate or Cancel, and only in that window.
+- **Check** (`{action: "check"}`):
+  - It looks at new audio files in the stems folder (the stem comes from "(Vocals)" and so on), new tracks by name, and the tempo against the one noted. The group is a new `is_group` track whose name ends in "Stems"; its stems are its `in_group` children.
+  - A file counts as finished when its `.asd` is there or its size didn't change since the last check. Whether Live writes stems bit by bit is unknown.
+  - Done means the group has one child per stem asked for, and every file is finished. Then it gives the group's index for `song_analyze {stems}`, and keeps the result.
+  - A tempo change is reported with an offer to set it back, never done on its own.
+  - With no job, it lists the stem groups and files in the set. `live_status` adds `stem_separation` while a job runs.
+- **Cancel** (`{action: "cancel"}`): presses Cancel while the window is open. While Live is separating there is no window it may press, so it says to ask the user.
+- **Not revertible:** Live makes the tracks itself, so `live_revert` has nothing to take back.
+- **Mac:** refused with the by-hand steps; the window there hasn't been looked at. **Arrangement clips:** refused for now, because the Live script can only select a Session slot.
+- **Tests:**
+  - `mcp_client.ts` drives it with a stand-in menu and window (`SECOND_CHAIR_STEMS_UIA`) against `fake_live.py`: the refusals, a failed toggle (Cancel pressed), cancel, a start (Drums and High Quality unticked, Separate pressed), checks before and after the files and the group appear, the tempo change, and `song_analyze` on the group.
+  - `test/separate_uia.ps1` checks `separate.ps1` on a WPF stand-in window: Toggle, Separate, Cancel, and that a window not owned by Live is never pressed. Run it by hand: `powershell -ExecutionPolicy Bypass -File live-bridge\test\separate_uia.ps1`.
+  - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** a High Speed split of the 0.7 s kick clip (track 2, slot 0). The start took 12 s and pressed Separate; the Quality Mode toggle worked. Live first wrote `AbletonTmp-0000` to `0003` in the Stems folder, then four 176 KB WAVs, each with an `.asd`. The first check, 15 s after the start, saw it done: group "kick_goob Stems" at track 3, stems on tracks 4 to 7, and the old track 3 moved to 8. The tempo stayed 122. `song_analyze {stems: 3}` read the group, then refused the 0.7 s length, as it should. Cancel, with the window opened by the same route, closed it, and Live kept running.
+  - The `[date time]` in Live's stem file names looked like UTC (21:11 for a 13:11 local start). Not checked further.
+  - **Not yet seen in real Live:** a split long enough to watch the progress, a tempo change, unticking a stem, High Quality, and Merge (greyed out on this clip).
 
 ## Return tracks and Main in real Live (bridge 0.9.6)
 

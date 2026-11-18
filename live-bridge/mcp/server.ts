@@ -15,6 +15,7 @@ import { captureLive } from "./screenshot.ts";
 import { openSet, mergeSet, type ApiSet } from "./liveset.ts";
 import { logMessageBoxes } from "./dialogs.ts";
 import { liveMenu, liveSave } from "./menu.ts";
+import { startStems, checkStems, cancelStems, stemJobSummary } from "./separate.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
@@ -24,7 +25,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.12.1";
+const VERSION = "0.13.0";
 const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -439,7 +440,9 @@ const tools: Tool[] = [
         : { open: null, source: "unknown: the Live script is older than 0.11.0, so only Live's log can say" };
       if (apiDialog?.open) dialog.note = "Live is waiting on this message box. Tell the user what it says and let them answer it in Live; nothing here presses its buttons.";
       if (logged.length) dialog.log = { message_boxes_since_live_started: logged, note: "From Live's Log.txt. The log doesn't say when a box closes, so these may be closed already." };
-      return { ...ping, ...versions, ...studio, ...guide, set: named, dialog, session: await bridge("get_session") };
+      const session = await bridge("get_session") as { tracks: { index: number; name: string; kind: string }[] };
+      const stems = stemJobSummary(session);
+      return { ...ping, ...versions, ...studio, ...guide, set: named, dialog, ...(stems ? { stem_separation: stems } : {}), session };
     } },
   { name: "live_get_track", description: "One track in detail, including which clip slots hold clips. Tracks are numbered from 0.",
     inputSchema: obj({ track: int("Track index from 0") }, ["track"]), run: (a) => bridge("get_track", a) },
@@ -844,7 +847,7 @@ const tools: Tool[] = [
       }
       return out;
     } },
-  { name: "song_analyze", description: "Measure what the music in a song is doing, since you can't hear it: the key (with the runner-up, the relative key always named, and the scale's notes), tuning in cents from A440, tempo with the half and double readings side by side, how often the music repeats, a one-bar map of where low, mid and high hits land (kick, snare, hats), a rough bass note per bar, and loudness and tone (audio_analyze's numbers). Each reading has a confidence and a check-by-ear step. Give file (a full path to a WAV, or a name to look for in the sample folders) or clip (an audio clip in Live: {track, bar, name} or {track, slot}). WAV only. It changes nothing, and file works without Live; a 2-minute song takes a few seconds. These are measurements and options, not answers: report them, then let the user decide by ear, above all which key feels like home (a key and its relative share every note) and whether the beat feels like the half or the double. A full mix can't tell drums from other parts, or the bass from a low kick: stems settle that. stems: the index of the group track Live's Separate Stems made (\"<song> Stems\"; the tool reads each stem clip's file), or WAV paths {vocals, drums, bass, others} (any of the four). With stems it adds each stem's level (a near-silent stem means that part isn't in the song), the tempo feel from where the snare lands, the bass line and its timeline, the singer's range (held notes, the usual 10th-90th zone, the notes with the most time), a cleaner key and chord loop from the Others stem, the key the chords lean to and the key the melody leans to, and keys that suit the singer as options. A stems run takes about 10 to 20 seconds for a 2-minute song. Separate Stems itself is a click in Live (save the set first, then right-click the clip > Separate Stems to New Audio Tracks); tools can't start it.",
+  { name: "song_analyze", description: "Measure what the music in a song is doing, since you can't hear it: the key (with the runner-up, the relative key always named, and the scale's notes), tuning in cents from A440, tempo with the half and double readings side by side, how often the music repeats, a one-bar map of where low, mid and high hits land (kick, snare, hats), a rough bass note per bar, and loudness and tone (audio_analyze's numbers). Each reading has a confidence and a check-by-ear step. Give file (a full path to a WAV, or a name to look for in the sample folders) or clip (an audio clip in Live: {track, bar, name} or {track, slot}). WAV only. It changes nothing, and file works without Live; a 2-minute song takes a few seconds. These are measurements and options, not answers: report them, then let the user decide by ear, above all which key feels like home (a key and its relative share every note) and whether the beat feels like the half or the double. A full mix can't tell drums from other parts, or the bass from a low kick: stems settle that. stems: the index of the group track Live's Separate Stems made (\"<song> Stems\"; the tool reads each stem clip's file), or WAV paths {vocals, drums, bass, others} (any of the four). With stems it adds each stem's level (a near-silent stem means that part isn't in the song), the tempo feel from where the snare lands, the bass line and its timeline, the singer's range (held notes, the usual 10th-90th zone, the notes with the most time), a cleaner key and chord loop from the Others stem, the key the chords lean to and the key the melody leans to, and keys that suit the singer as options. A stems run takes about 10 to 20 seconds for a 2-minute song. To make the stems, live_separate_stems runs Live's Separate Stems (on the user's request; its check gives the group index for stems).",
     inputSchema: obj({ file: { type: "string", description: "Full path to a WAV, or a name to find in the sample folders" },
       clip: { type: "object", description: "Or an audio clip in Live: {track, bar, name} or {track, slot}" },
       stems: { type: ["integer", "object"], description: "The stem group track's index (from live_status: the group Separate Stems made), or {vocals, drums, bass, others}: full paths to stem WAVs. With stems, file or clip is optional: it's the full mix; without it the stems are added together.",
@@ -989,7 +992,7 @@ const tools: Tool[] = [
     } },
 
   // --- 0.12.0 (needs the 0.11.0 Remote Script): select, import, convert, quantize without the screen ---
-  { name: "live_select_clip", description: "Select a Session clip slot in Live, the way a click on it does: the track is selected, the slot highlighted, and the clip shown in Clip View (show: false leaves the views alone). Use it before a live_menu command that acts on the selected clip (Create > Separate Stems to New Audio Tracks, the Convert commands), so the command has a target. Returns what Live says is selected afterwards. Changes only the selection and which view shows, never the set.",
+  { name: "live_select_clip", description: "Select a Session clip slot in Live, the way a click on it does: the track is selected, the slot highlighted, and the clip shown in Clip View (show: false leaves the views alone). Use it before a live_menu command that acts on the selected clip (Create > Separate Stems to New Audio Tracks, the Convert commands), so the command has a target; then live_menu Navigate > Session View before the command (Live 12.4.16 ignored Separate Stems after the select alone). For stems, live_separate_stems does all of it. Returns what Live says is selected afterwards. Changes only the selection and which view shows, never the set.",
     inputSchema: obj({ track: int("Track index, from 0"), slot: int("Slot index, from 0"),
       show: { type: "boolean", description: "Also show Session View and Clip View (default true)" } }, ["track", "slot"]),
     run: (a) => bridgeNew("live_select_clip", "select_clip", { track: a.track, slot: a.slot, show: a.show !== false }) },
@@ -1048,6 +1051,19 @@ const tools: Tool[] = [
   { name: "live_menu", description: "Fire one of Live's menu commands by name, e.g. \"View > Browser\" or \"Create > Separate Stems to New Audio Tracks\", with no screen control: Live can stay in the background, and the mouse, keys and clipboard aren't touched. Use only when the user asks for that command, and tell them what was fired. Only an allow-list fires: commands that open a dialog (nothing changes until the user confirms it there; press nothing in it yourself), change only the view, or (through live_save) save. New, Open, Close Window and Quit are always refused. An unknown path is refused with the close matches. On Windows, Live doesn't mark which commands are greyed out, so one that needs a selected clip or track is sent anyway and Live may just ignore it: check with live_screenshot. Windows; the Mac route is written but not yet tested.",
     inputSchema: obj({ path: { type: "string", description: "Menu path with > between levels, as Live shows it, e.g. \"View > Browser\"" } }, ["path"]),
     run: (a) => liveMenu(String(a.path ?? "")) },
+  { name: "live_separate_stems", description: "Run Live's Stem Separation on a Session audio clip without taking over the screen (Windows, Live Suite 12.3 or later; the set must be saved, since the stems go in its project folder). Only when the user asks for stems. action start (the default): selects the clip, fires Create > Separate Stems to New Audio Tracks, ticks the stems asked for (vocals, drums, bass, others; default all four), sets quality (fast = High Speed, high = High Quality, the default) and merge (one track instead of a group; default off) in Live's Separate Stems window, presses Separate, and returns at once. It presses only Separate or Cancel, only in that window. It takes minutes (High Quality: about 9 minutes for a 2-minute song) and Live stops playback. action check: which stem files exist so far, and when done the new group track's index, which is exactly what song_analyze's stems input takes; it also reports if Live changed the set's tempo (it guesses one): tell the user and offer to set it back with live_set_tempo, never without asking. With no separation running, check lists the stem groups already in the set. action cancel: presses Cancel in Live's Separate Stems window while it's open. live_revert can't take a separation back: Live makes the tracks itself. Mac: refuses, with the by-hand steps.",
+    inputSchema: obj({ action: { type: "string", enum: ["start", "check", "cancel"], description: "start (default), check or cancel" },
+      track: int("start: the clip's track, from 0"), slot: int("start: the clip's Session slot, from 0"),
+      bar: { type: "number", description: "Arrangement clips aren't supported yet (refused with the by-hand steps)" },
+      stems: { type: "array", items: { type: "string", enum: ["vocals", "drums", "bass", "others"] }, description: "Which stems (default all four)" },
+      quality: { type: "string", enum: ["fast", "high"], description: "fast = High Speed, high = High Quality (default)" },
+      merge: { type: "boolean", description: "Merge the stems into one track (default false; song_analyze needs them separate)" } }),
+    run: async (a) => {
+      const action = a.action ?? "start";
+      if (action === "check") return checkStems(bridge);
+      if (action === "cancel") return cancelStems();
+      return startStems(bridge, a);
+    } },
   { name: "live_save", description: "Save the open set (File > Save Live Set), then check it landed: Live's title loses its *, the .als file's time changes, and Live shows no message box. Only for a set that already has a file; a new Untitled set needs Save As, which this refuses. Use when the user asks to save, and say it was saved. If it fails, it says so: ask the user to press Ctrl+S (Cmd+S on the Mac), or offer computer use.",
     inputSchema: obj({}), run: () => liveSave() },
 
