@@ -16,6 +16,7 @@ import { openSet, mergeSet, type ApiSet } from "./liveset.ts";
 import { logMessageBoxes } from "./dialogs.ts";
 import { liveMenu, liveSave } from "./menu.ts";
 import { startStems, checkStems, cancelStems, stemJobSummary } from "./separate.ts";
+import { readPicker, fillPicker, cancelPicker, checkFile, saveSetAs } from "./filedialog.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
@@ -25,7 +26,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.13.0";
+const VERSION = "0.14.0";
 const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -1048,7 +1049,7 @@ const tools: Tool[] = [
     } },
 
   // --- Live's menu bar, without the screen (menu.ts) ---
-  { name: "live_menu", description: "Fire one of Live's menu commands by name, e.g. \"View > Browser\" or \"Create > Separate Stems to New Audio Tracks\", with no screen control: Live can stay in the background, and the mouse, keys and clipboard aren't touched. Use only when the user asks for that command, and tell them what was fired. Only an allow-list fires: commands that open a dialog (nothing changes until the user confirms it there; press nothing in it yourself), change only the view, or (through live_save) save. New, Open, Close Window and Quit are always refused. An unknown path is refused with the close matches. On Windows, Live doesn't mark which commands are greyed out, so one that needs a selected clip or track is sent anyway and Live may just ignore it: check with live_screenshot. Windows; the Mac route is written but not yet tested.",
+  { name: "live_menu", description: "Fire one of Live's menu commands by name, e.g. \"View > Browser\" or \"Create > Separate Stems to New Audio Tracks\", with no screen control: Live can stay in the background, and the mouse, keys and clipboard aren't touched. Use only when the user asks for that command, and tell them what was fired. Only an allow-list fires: commands that open a dialog (nothing changes until the user confirms it there; press nothing in it yourself, except a Windows file picker through live_file_dialog when the user gave the file), change only the view, or (through live_save) save. New, Open, Close Window and Quit are always refused. An unknown path is refused with the close matches. On Windows, Live doesn't mark which commands are greyed out, so one that needs a selected clip or track is sent anyway and Live may just ignore it: check with live_screenshot. Windows; the Mac route is written but not yet tested.",
     inputSchema: obj({ path: { type: "string", description: "Menu path with > between levels, as Live shows it, e.g. \"View > Browser\"" } }, ["path"]),
     run: (a) => liveMenu(String(a.path ?? "")) },
   { name: "live_separate_stems", description: "Run Live's Stem Separation on a Session audio clip without taking over the screen (Windows, Live Suite 12.3 or later; the set must be saved, since the stems go in its project folder). Only when the user asks for stems. action start (the default): selects the clip, fires Create > Separate Stems to New Audio Tracks, ticks the stems asked for (vocals, drums, bass, others; default all four), sets quality (fast = High Speed, high = High Quality, the default) and merge (one track instead of a group; default off) in Live's Separate Stems window, presses Separate, and returns at once. It presses only Separate or Cancel, only in that window. It takes minutes (High Quality: about 9 minutes for a 2-minute song) and Live stops playback. action check: which stem files exist so far, and when done the new group track's index, which is exactly what song_analyze's stems input takes; it also reports if Live changed the set's tempo (it guesses one): tell the user and offer to set it back with live_set_tempo, never without asking. With no separation running, check lists the stem groups already in the set. action cancel: presses Cancel in Live's Separate Stems window while it's open. live_revert can't take a separation back: Live makes the tracks itself. Mac: refuses, with the by-hand steps.",
@@ -1064,8 +1065,20 @@ const tools: Tool[] = [
       if (action === "cancel") return cancelStems();
       return startStems(bridge, a);
     } },
-  { name: "live_save", description: "Save the open set (File > Save Live Set), then check it landed: Live's title loses its *, the .als file's time changes, and Live shows no message box. Only for a set that already has a file; a new Untitled set needs Save As, which this refuses. Use when the user asks to save, and say it was saved. If it fails, it says so: ask the user to press Ctrl+S (Cmd+S on the Mac), or offer computer use.",
-    inputSchema: obj({}), run: () => liveSave() },
+  { name: "live_save", description: "Save the open set (File > Save Live Set), then check it landed: Live's title loses its *, the .als file's time changes, and Live shows no message box. A new Untitled set has no file yet: give path (a full .als path the user chose, e.g. in their Music\Ableton\Projects folder) and it runs File > Save Live Set As and fills Windows' file picker (Live may put the set in a new \"<name> Project\" folder). path also saves an already-saved set under a new name; it never replaces an existing file. Use when the user asks to save, and say it was saved. If it fails, it says so: ask the user to press Ctrl+S (Cmd+S on the Mac), or offer computer use.",
+    inputSchema: obj({ path: { type: "string", description: "Save As: the full path of a new .als file (Windows). Leave out for a plain save." } }),
+    run: (a) => a.path ? saveSetAs(bridge, a.path) : liveSave() },
+  { name: "live_file_dialog", description: "Fill one of Live's file pickers without the screen (Windows): the Save picker after File > Save Live Set As, Save a Copy, or Export Audio/Video (after its Export button), and the Open picker after Create > Import Audio/MIDI File. These are Windows' own file dialogs; this puts a full path in File name and presses Save or Open with window messages: no mouse, keys or clipboard, and Live stays in the background. Only when the user asked for that save, export or import and the file name or folder is settled (say the path back to them). action read (the default): is a picker open, its title, kind (save or open), folder and file type. action fill with path (a full path): Save pickers refuse a file that already exists unless replace: true (only when the user said to replace it); if Windows still asks to replace, it answers No and says so. It refuses a missing folder, a system folder, a wrong file type, or an Open of a missing file. After a Save it waits for the file: an Export renders first, so its file may come later (action check with the path). action cancel presses the picker's Cancel. action check with path: does the file exist, its size and time. It never touches Live's own drawn windows (Live's Export settings window, for example: the user or computer use presses Export there). For a new set, live_save with path does Save As in one call. Mac: refuses, with the by-hand steps.",
+    inputSchema: obj({ action: { type: "string", enum: ["read", "fill", "cancel", "check"], description: "read (default), fill, cancel or check" },
+      path: { type: "string", description: "fill and check: the full path, e.g. C:\Users\<you>\Music\Ableton\Projects\Song Project\Song.als" },
+      replace: { type: "boolean", description: "fill: replace an existing file (only when the user said so; default false)" } }),
+    run: async (a) => {
+      const action = a.action ?? (a.path ? "fill" : "read");
+      if (action === "fill") return fillPicker({ path: a.path, replace: a.replace === true });
+      if (action === "cancel") return cancelPicker();
+      if (action === "check") return checkFile(a.path);
+      return readPicker();
+    } },
 
   // --- theory: computed locally, no Live needed ---
   { name: "theory_key", description: `Everything about a key: its notes, the chords that fit (with roman numerals), common progressions, and which of a 25-key keyboard's keys are in it. Scales: ${SCALE_IDS.join(", ")}.`,

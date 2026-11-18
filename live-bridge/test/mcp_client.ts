@@ -11,7 +11,8 @@ const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.p
 // live_menu / live_save read a stand-in menu, log and project folder, never the real Live that may be open alongside.
 const MENU_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-menu-test-"));
 Object.assign(process.env, { SECOND_CHAIR_LIVE_MENU: path.join(MENU_DIR, "menu.json"), SECOND_CHAIR_LIVE_LOG: path.join(MENU_DIR, "Log.txt"),
-  SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500", SECOND_CHAIR_STEMS_UIA: path.join(MENU_DIR, "stems-window.json") });
+  SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500", SECOND_CHAIR_STEMS_UIA: path.join(MENU_DIR, "stems-window.json"),
+  SECOND_CHAIR_FILE_DIALOG: path.join(MENU_DIR, "picker.json"), SECOND_CHAIR_FILE_WAIT_MS: "800", SECOND_CHAIR_FILE_OPEN_MS: "1500" });
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
   env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "my-song* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
@@ -784,6 +785,57 @@ await expect("refused", "live_save", {}, "Save didn't go through");
     await fakeAsk("fake_user_tempo", { bpm: tempo });
     fs.rmSync(path.join(project, "Samples", "Processed"), { recursive: true, force: true });
   }
+}
+// File pickers (live_file_dialog and live_save with path, 0.14.0): a stand-in menu and picker. Real Live and its
+// pickers are never touched here (the Windows part has its own check: test/filedialog_uia.ps1).
+{
+  const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, PICK = process.env.SECOND_CHAIR_FILE_DIALOG!;
+  const dir = path.join(MENU_DIR, "Song Project"); fs.mkdirSync(dir, { recursive: true });
+  const at = (f: string) => path.join(dir, f);
+  fs.writeFileSync(MENU, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version: "12.4.16", windows: [],
+    menus: [{ name: "File", items: [item("Save Live Set", 2081), item("Save Live Set As...", 2082), item("Save a Copy...", 2083)] }],
+    opens: { "File > Save Live Set As...": "Save Live Set As:", "File > Save a Copy...": "Save a Copy:" } }));
+  const pick = (extra: Record<string, unknown> = {}) => fs.writeFileSync(PICK, JSON.stringify({ kind: "save", title: "Save a Copy:", folder: dir, file_type: "Live Set (*.als)", pressed: [], ...extra }));
+  const pressed = () => JSON.parse(fs.readFileSync(PICK, "utf8")).pressed as string[];
+  pick();
+  await expect("ok", "live_file_dialog", {}, "\"open\": false");
+  await expect("refused", "live_file_dialog", { action: "fill", path: at("a.als") }, "nothing to fill");
+  await expect("ok", "live_menu", { path: "File > Save a Copy" }, 'opened: \\"Save a Copy:');
+  await expect("ok", "live_file_dialog", {}, "\"kind\": \"save\"");
+  await expect("refused", "live_file_dialog", { path: "Song.als" }, "isn't a full path");
+  await expect("refused", "live_file_dialog", { path: at("a?.als") }, "characters Windows doesn't allow");
+  await expect("refused", "live_file_dialog", { path: path.join(process.env.SystemRoot || "C:\\Windows", "x.als") }, "system folder");
+  await expect("refused", "live_file_dialog", { path: path.join(dir, "nope", "a.als") }, "doesn't exist");
+  await expect("refused", "live_file_dialog", { path: at("a.wav") }, "saves Live Set (*.als)");
+  fs.writeFileSync(at("exists.als"), "old");
+  await expect("refused", "live_file_dialog", { path: at("exists.als") }, "already exists");
+  if (pressed().length) { failed++; console.log("!! refusals must press nothing: " + pressed()); }
+  const saved = js(await expect("ok", "live_file_dialog", { path: at("copy.als") }, "\"done\": true"));
+  if (saved.file !== at("copy.als") || !fs.existsSync(at("copy.als")) || pressed().join() !== "Save " + at("copy.als")) { failed++; console.log("!! fill should press Save once and find the file: " + JSON.stringify(saved) + " " + pressed()); }
+  await expect("ok", "live_file_dialog", {}, "\"open\": false");
+  await expect("ok", "live_file_dialog", { action: "check", path: at("copy.als") }, "\"exists\": true");
+  await expect("ok", "live_file_dialog", { action: "check", path: at("later.wav") }, "\"exists\": false");
+  // Replace only when asked.
+  await expect("ok", "live_menu", { path: "File > Save a Copy" }, "Save a Copy:");
+  await expect("ok", "live_file_dialog", { path: at("exists.als"), replace: true }, "\"replaced\": true");
+  // Cancel.
+  await expect("ok", "live_menu", { path: "File > Save a Copy" }, "Save a Copy:");
+  await expect("ok", "live_file_dialog", { action: "cancel" }, "\"pressed\": \"Cancel\"");
+  await expect("ok", "live_file_dialog", { action: "cancel" }, "Nothing to cancel");
+  // An Open picker (Import): the file must exist.
+  pick({ kind: "open", title: "Import Audio/MIDI File", file_type: "Audio files (*.wav;*.aif)", open: true });
+  await expect("ok", "live_file_dialog", {}, "\"kind\": \"open\"");
+  await expect("refused", "live_file_dialog", { path: at("kick.wav") }, "no file at");
+  fs.writeFileSync(at("kick.wav"), "RIFF");
+  await expect("ok", "live_file_dialog", { path: at("kick.wav") }, "Live is opening the file");
+  // live_save with path: Save As for a new, Untitled set.
+  pick({ title: "Save Live Set As:" });
+  await fakeAsk("fake_set_path", { path: "" });
+  await expect("refused", "live_save", { path: at("New.wav") }, "saved as .als");
+  await expect("refused", "live_save", { path: at("exists.als") }, "already exists");
+  const sa = js(await expect("ok", "live_save", { path: at("New Song.als") }, "\"fired\": \"File > Save Live Set As\""));
+  if (sa.file !== at("New Song.als") || !sa.done) { failed++; console.log("!! live_save with path should save through the picker: " + JSON.stringify(sa)); }
+  await fakeAsk("fake_set_path", {});
 }
 fs.rmSync(MENU_DIR, { recursive: true, force: true });
 

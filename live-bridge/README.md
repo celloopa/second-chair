@@ -300,6 +300,28 @@ Needs Live Suite 12.3 or later, Windows, a saved set and the 0.11.0 Live script.
   - The `[date time]` in Live's stem file names looked like UTC (21:11 for a 13:11 local start). Not checked further.
   - **Not yet seen in real Live:** a split long enough to watch the progress, a tempo change, unticking a stem, High Quality, and Merge (greyed out on this clip).
 
+## File pickers without the screen (live_file_dialog, 0.14.0)
+
+Windows' own Save and Open boxes ("file pickers") that Live opens: File > Save Live Set As, Save a Copy, the save box after Export Audio/Video's Export button, and Create > Import Audio/MIDI File. Server only (`mcp/filedialog.ts`, `mcp/filedialog.ps1`): no Remote Script change, so no Live restart.
+
+- **All Win32, no UI Automation for the acting** (seen on Windows 11, Live 12.4.16, 2026-11-18):
+  - .NET's UI Automation sees the picker's Win32 controls only as plain panes, with no Value or Invoke.
+  - Worse, it leaves out a picker that the window manager has cloaked (GlazeWM hides other workspaces that way) and shows nothing inside it. Live's Save a Copy picker was invisible to it on the second try.
+  - So `filedialog.ps1` lists Live's top-level `#32770` windows with `EnumWindows`, and finds the parts with `EnumChildWindows`: the File name `Edit` (control id 1001 in a `ComboBox` in Save pickers; inside the id-1148 box in Open pickers), Button 1 (Save/Open), Button 2 (Cancel), the "Address: ..." toolbar (the folder) and the file-type `ComboBox`.
+  - It sets the path with `WM_SETTEXT`, then **types the last character again with `WM_CHAR`** to the box itself (no keyboard, no focus), and reads it back with `WM_GETTEXT`. Without the retype, Live's picker kept its own suggested name ("ZZ Scratch Copy") and saved under that: seen once in real Live, then reproduced on the stand-in with a suggested name.
+  - Save/Open and Cancel are `WM_COMMAND` with the button id, sent to the picker: the message a click sends.
+  - Windows' "already exists, replace it?" box is a task dialog. Its Yes and No are pressed with `TDM_CLICK_BUTTON` (6 and 7). Its text is read with UI Automation by handle, when it can be.
+- **Checks before pressing** (`filedialog.ts`): a full path; no characters Windows refuses; not a system folder; the folder exists; the file type matches the picker's (`*.als` and so on); an Open needs the file; a Save over an existing file is refused unless `replace: true`. A path in OneDrive gets a warning.
+- **After pressing:** it waits for the picker to close, then for the file (or `<name> Project\<name>.als` beside it). If a different file appeared in the folder instead, it says so (`saved_elsewhere`). An Export renders first, so its file comes later: `{action: "check", path}`.
+- **`live_save {path}`:** Save As for an Untitled set: `File > Save Live Set As` by name, wait for the picker, fill it. Refuses an existing file and the set's own file.
+- **Never Live's own drawn windows:** SetValue on Live's sliders crashed Live (community-reported). Live's Export Audio/Video window is UI Automation-readable (seen, read only): Rendered Track and the other choosers, Render Start and Render Length as Sliders with values, the option buttons with On/Off values, and Export and Cancel buttons with Invoke. Pressing its Cancel through Invoke closed it. Pressing Export and setting the length are not built.
+- **Mac:** refused with the by-hand steps. The Mac's Save panel doesn't take a full path in its name field (the Mac lead saw it save a file with ':' in its name).
+- **Tests:**
+  - `mcp_client.ts` drives it with a stand-in menu and picker (`SECOND_CHAIR_FILE_DIALOG`) against `fake_live.py`: the refusals (nothing pressed), fill, check, replace, cancel, an Open picker, and `live_save {path}` on an Untitled set.
+  - `test/filedialog_uia.ps1` runs `filedialog.ps1` on real Windows file pickers opened by `test/filedialog_window.ps1` (WinForms Save and Open dialogs): read, fill, a picker with a suggested name, Replace answered No and then Yes, Cancel, Open, and that a picker not owned by Live is never touched. The stand-in pickers show on screen for a few seconds each.
+  - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** File > Save a Copy by name, then `live_file_dialog` read the hidden picker (folder, suggested name "ZZ Scratch Copy", file type "Ableton Live Set (*.als)") and saved exactly at the path given. Over that file again: the tool refused first; the script alone met Windows' Replace box and answered No (file untouched); `replace: true` replaced it. Cancel closed the picker. The open set stayed ZZ Scratch with nothing unsaved.
+  - **Not checked in real Live:** `live_save {path}` on an Untitled set (`live_menu` won't open a new set), the Export save picker after a real render, and an Import through the Open picker.
+
 ## Return tracks and Main in real Live (bridge 0.9.6)
 
 - **The 0.9.5 bug:** `live_status` failed in real Live with "RuntimeError: Main and Return Tracks have no Clips". On return tracks and Main, Live raises RuntimeError for clip properties (`clip_slots`, `playing_slot_index`). `getattr(t, ..., default)` only catches AttributeError, so it didn't help.

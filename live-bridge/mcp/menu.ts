@@ -230,7 +230,7 @@ export async function liveMenu(want: string, opts: { allowSave?: boolean } = {})
     for (let i = 0; before && i < 10 && !opened.length; i++) { await new Promise((res) => setTimeout(res, 300)); opened = newWindows(before.windows, (await liveWindows())?.windows); }
     if (opened.length) out.dialog = `opened: ${quoted(opened)}`;
     else if (before) out.dialog = "no new window seen yet; it may still be opening, or Live ignored the command (for example, nothing it applies to is selected). Check with live_screenshot.";
-    out.next = "Nothing changes until the user confirms the dialog in Live; tell them it's open (it may sit behind other windows), and press nothing in it yourself.";
+    out.next = "Nothing changes until the user confirms the dialog in Live; tell them it's open (it may sit behind other windows), and press nothing in it yourself. If it's a Windows file picker (Save As, Save a Copy, Import), live_file_dialog can fill it with a path the user gave.";
   }
   if (c.kind === "view") out.next = "Only the view changed.";
   return out;
@@ -309,7 +309,7 @@ const SAVE_FAIL = (why: string) => `Save didn't go through: ${why} Ask the user:
 export async function liveSave() {
   const set = await openSet();
   if ("unknown" in set) throw new Error(SAVE_FAIL(set.unknown));
-  if (set.untitled) throw new Error("This set has never been saved, so it has no file and no name yet. Saving it means Save As (a name and a folder), which live_save doesn't do. Nothing was fired. Ask the user to press " + (ON_MAC ? "Cmd+S" : "Ctrl+S") + " and pick the name and folder.");
+  if (set.untitled) throw new Error("This set has never been saved, so it has no file and no name yet. Nothing was fired. Saving it means Save As: ask the user for a name and folder, then call live_save with path (the full .als path). Or the user presses " + (ON_MAC ? "Cmd+S" : "Ctrl+S") + " and picks them.");
   if (!set.unsaved) return { saved: true, fired: null, set: set.name, note: "Nothing to save: Live's title has no *, so the set has no unsaved changes." };
   const files = setFiles(set.name);
   // Live 12.4 won't save over a set file made by an older Live without asking: Save opens Save As instead
