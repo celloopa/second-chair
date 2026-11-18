@@ -4,7 +4,7 @@ import path from "node:path";
 import net from "node:net";
 import os from "node:os";
 import fs from "node:fs";
-import { synthLoop, writeWav16 } from "./song_loop.ts";
+import { synthLoop, synthStems, writeWav16 } from "./song_loop.ts";
 
 // Live's tags come from a small stand-in tag file, so results don't depend on which packs are installed.
 const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.pid}.md`);
@@ -490,6 +490,19 @@ const song = js(await expect("ok", "song_analyze", { file: loopWav }, "\"best\":
 if (Math.abs(song.tempo?.bpm - 92) > 0.25) { failed++; console.log(`!! song_analyze should find 92 BPM, got ${song.tempo?.bpm}`); }
 fs.rmSync(loopWav, { force: true });
 await expect("refused", "song_analyze", {}, "file or clip");
+// Stems (0.12.1): made-up Vocals, Drums (near silent), Bass and Others in a group track, as Separate Stems leaves them.
+const stemParts = synthStems(92, 8);
+const stemFiles = Object.fromEntries(Object.entries(stemParts).map(([k, x]) => { const f = path.join(os.tmpdir(), `second-chair-stem-${process.pid}-${k}.wav`); writeWav16(f, x); return [k, f]; }));
+const sg = await fakeAsk("fake_stem_group", { files: stemFiles });
+const stemRep = js(await expect("ok", "song_analyze", { stems: sg.group }, "\"stem_group\""));
+if (Object.keys(stemRep.stem_group?.stems ?? {}).length !== 4 || !stemRep.levels?.drums?.near_silent || stemRep.levels?.vocals?.near_silent) { failed++; console.log("!! the stem group should give four stems, the drums near silent: " + JSON.stringify(stemRep.stem_group) + JSON.stringify(stemRep.levels)); }
+if (!/G minor/.test(stemRep.key?.harmony?.best) || !/B♭ major/.test(stemRep.key?.melody?.best) || !/relative keys/.test(stemRep.key?.reading)) { failed++; console.log("!! the chords should lean G minor and the melody B♭ major: " + JSON.stringify(stemRep.key)); }
+if (!stemRep.keys_for_singer?.options?.length || !stemRep.summary.some((l: string) => l.startsWith("No drums"))) { failed++; console.log("!! stems should offer keys for the singer and say there are no drums"); }
+const sp = js(await expect("ok", "song_analyze", { stems: { vocals: stemFiles.vocals, others: stemFiles.others } }, "\"harmony\""));
+if (sp.levels?.drums || !/B♭ major/.test(sp.key?.melody?.best)) { failed++; console.log("!! two stem paths should read just those two: " + JSON.stringify(sp.levels)); }
+await expect("refused", "song_analyze", { stems: 0 }, "isn't a group track");
+await expect("refused", "song_analyze", { stems: { vocals: "no-such-file.wav" } }, "isn't a file");
+for (const f of Object.values(stemFiles)) fs.rmSync(f as string, { force: true });
 await expect("ok", "studio_guide", { playbook: "mastering" }, "LUFS");
 if (js(await expect("ok", "live_status", {}, "bridge")).version_warning) { failed++; console.log("!! a newer server with a current Remote Script shouldn't warn"); }
 

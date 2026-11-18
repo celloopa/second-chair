@@ -48,6 +48,7 @@ Step-by-step best practices per kind of job, in `playbooks/` next to this file (
 | Mastering, loudness, "is it loud enough", comparing with a reference, Ozone | `playbooks/mastering.md` |
 | The timeline: clips, recording rows, automation, fades | `playbooks/arrangement.md` |
 | Recording voice, bass or guitar; inputs; latency; Melodyne | `playbooks/recording.md` |
+| What key, tempo or chords a song has; the singer's range; "analyze a song with stems" | `playbooks/song-analysis.md` |
 
 ## 3. Which tool for what the user says
 
@@ -90,6 +91,7 @@ Step-by-step best practices per kind of job, in `playbooks/` next to this file (
 | "Tighten the vocal stack", "line the doubles up with the lead" | `live_align_audio` with `clip` (the take to move) and `to` (the lead), both as `{track, bar, name}` from `live_get_arrangement`. Run it with `preview: true` first and tell the user how many starts would move and the biggest shift. Then run it, and ask the user to listen for stretched words. `live_revert` takes it back. Don't make a stack robotically tight unless the user asks: a little looseness is the sound of a stack. |
 | "Is it loud enough", "why is my bounce quiet", "compare it with this song" | `audio_analyze` on the exported WAV (and a `reference`): loudness in LUFS, true peak, tone by band, stereo. Follow `playbooks/mastering.md`. Works without Live. |
 | "What key is this song in", "what's the tempo", "what's the bass doing" (a WAV, or an audio clip in Live) | `song_analyze`: key with runner-up and relative key, tuning, tempo with half and double, a short pattern and the chord cycle, a one-bar drum map (or "no clear drums"), a rough bass note per bar, loudness. Report each reading with its confidence and its check-by-ear step. Never pick major or relative minor, or half or double tempo, for the user: that is their ear's call. Works without Live. |
+| "Analyze it with stems", "what's the singer's range", "what key suits this singer", "are there drums" | The user saves the set, then right-clicks the clip > Separate Stems (tools can't start it). Then `song_analyze {stems: <group track index>}` (or `{vocals, drums, bass, others}` paths): each stem's level (near silent = that part isn't in the song), the tempo feel from the snare, the bass line, the singer's range, the key the chords lean to and the key the melody leans to, a chord loop, and keys that suit the singer as options. Say that stems leak. The singer and the user pick the key by ear. Follow `playbooks/song-analysis.md`. |
 | "Copy that loop to slot 3" | `live_copy_clip` into an empty slot. |
 | "Double the guitar", "rename the tracks" | `live_duplicate_track`, `live_rename` (track or scene). Only when the user asks. |
 | "Delete the clip called X in that slot" | `live_delete_clip` with the track, the slot and the clip's exact name, only when the user asks for that clip to go. `live_undo` straight away brings it back. |

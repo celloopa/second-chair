@@ -234,7 +234,7 @@ For mastering, where Claude has no ears (the beta's first use, 2026-11-12). MCP 
 - **Version check:** `live_status` now warns only when Live's Remote Script is older than `NEEDS_BRIDGE` (0.9.6), so server-only releases like this one don't ask for a Live restart.
 - **Playbook:** `playbooks/mastering.md` (the export-measure-listen loop, what each number means, the chain on Main, Ozone).
 
-## Song analysis: key, tempo and more (song_analyze, not yet released)
+## Song analysis: key, tempo and more (song_analyze, 0.11.0; stems 0.12.1)
 
 What the music is doing, from a full mix. A port of the one-off scripts `key_tempo.py` and `fold.py` (Cello Brain, `inbox/music-studio/song-analysis-scripts`), from the song chat of 2026-11-18. MCP server only.
 
@@ -250,10 +250,28 @@ What the music is doing, from a full mix. A port of the one-off scripts `key_tem
 - **Each reading** has a confidence and a check-by-ear step. The description follows the mentor rule: report, offer options, and the user decides by ear.
 - **Checked** (`test/song_analyze.ts`, 16 checks):
   - The made-up loop (G minor, 92 BPM, Gm–E♭–Cm–D) comes back as G minor at 92.00 BPM, chord and bass cycle 16 beats, bass notes G, E♭, C and D, with a drum map. Without its drums: still G minor, and "no clear drums".
-  - A 2-minute R&B song with no drums read the same as the Python scripts: F♯ major with D♯ minor close behind (medium: listen for home), 123.99 BPM, +1 cent, chord cycle 32 beats, no clear drums. Its hook bass came out B–G♯–D♯–C♯, the same as its bass stem. About 5 s.
+  - A real 2-minute song with no drums read the same as the earlier Python scripts on key, tempo, tuning, chord cycle and bass line, and found no clear drums. About 5 s.
   - The drum line (−18 dB) rests on seven files: three mixes with drums (−11 to −16 dB) and four without (−20 to −43 dB). Treat it as a first guess.
   - A 140 BPM trap beat (felt as 70) reads 139.35, half 69.7. A 4:52 house track takes about 12 s.
-- **Not yet:** stems (step 2 of the plan), MP3, chords, vocal range.
+- **Not yet:** MP3, and Live's own readings (warp-marker tempo, Convert to MIDI) as a second opinion.
+
+### Stems (0.12.1)
+
+`song_analyze` also reads the four stems Live's Stem Separation makes (`mcp/stems.ts`). Separate Stems itself stays a click in Live: the API can't start it. Save the set first, so the stems land in `<Project>\Samples\Processed\Stems\`.
+
+- **Input:** `stems` is the index of the group track Separate Stems made, or `{vocals, drums, bass, others}` WAV paths (any of the four). For a group, the server reads `get_session` (`is_group`, `in_group`), takes each child track's longest audio clip (`get_arrangement`, else `get_track`), and gets its file from `audio_clip_info`. Each stem's kind comes from the file name ("(Vocals)") or the track name's first word. No Remote Script change. `file` or `clip` is optional with stems; without it, the stems are added together for the full-mix readings.
+- **Levels:** RMS and peak per stem, and where it plays (half-second blocks within 30 dB of its loudest). Near silent means a peak under −40 dBFS or an RMS under −60 dBFS. A drumless song's Drums stem still holds a little leakage, well under these lines.
+- **Drums:** the tempo the drums make you feel. In most grooves the snare lands on 2 and 4, so it comes round every two felt beats. The snare lane (0.9–4 kHz) is read in linear amplitude, not dB, so quiet hats don't count as much as the snare. Its autocorrelation at 1, 2, 4 and 8 beats of the pulse picks the shortest lag that repeats nearly as well as the best. Then it draws a 16-step map from a downbeat guess (kick on 1, snare on 2 and 4). A near-silent Drums stem gives "no drums" and no tempo from it.
+- **Bass:** YIN pitch tracking (de Cheveigné and Kawahara 2002, ported from `vocal_range.py`) at 30–300 Hz. It gives held notes in order, the stretches where the bass plays, a repeating pattern, the seconds on each note, and a home note (or "no single home note" when the top two are within 15%). Without a Bass stem, it uses the Others stem's peaks under 120 Hz, per bar.
+- **Vocals:** YIN at 70–1100 Hz. It gives the held range (notes of 0.15 s or more), the 10th–90th and 5th–95th percentile bands, the notes with the most time, and the key the melody's notes fit. It says that stems leak.
+- **Others:** a chroma from peaks at 55 Hz–2.5 kHz, for the harmony's key. Each beat gets a chord from triads and 7th chords, with a small lift when the root is the bass note. Then the loop: the bar cycle, the beats averaged across repeats, short blips joined to the closer neighbour, and runs on one root joined.
+- **Key leanings:** the harmony (Others) and the melody (Vocals) side by side, named as relative keys when they are.
+- **Keys that suit this singer:** where the song is now, one semitone down and up, then the nearest moves that keep the usual zone inside notes the singer already held. Each gives where the melody would sit, as options.
+- **Live's set tempo** is reported when it doesn't match the measurement (Separate Stems can change it).
+- **Checked** (`test/song_analyze.ts`, 21 more checks, with made-up stems from `test/song_loop.ts`):
+  - Made-up stems: a chord pad, a bass line, a voice-like melody that leans the relative major, and drums that are near silent, a backbeat or half time. They come back right: G minor chords, a B♭ major melody, held F3 to F4, most time on B♭3, the bass G1 → E♭2 → C2 → D2 four times, the loop Gm → E♭ → Cm → D, and "no drums". A backbeat at 92 feels like 92, half time at 140 like 70, and a backbeat at 140 like 140. About 3 s for four 43-second stems.
+  - Four real stems of a 2-minute song with no drums (High Quality, Live 12.4.16) matched the one-off Python scripts on every reading: levels, vocal range, bass line, both key leanings and tempo. About 9 s.
+  - `mcp_client.ts`: a fake stem group (`fake_stem_group`) is read by index, two stems are read by path, and a track that isn't a group is refused.
 
 ## Return tracks and Main in real Live (bridge 0.9.6)
 
@@ -477,7 +495,8 @@ Shared with the Mac port. Asked for by the user on 2026-11-10 while building a b
 ```
 python test\fake_live.py 120   # in one terminal
 node test\mcp_client.ts       # in another, within 15 s (stops if it finds real Live, since it writes to the set)
-node test\song_analyze.ts     # song_analyze on a made-up loop; needs no Live and no fake
+node test\song_analyze.ts     # song_analyze on a made-up loop and made-up stems; needs no Live and no fake
+node test\song_analyze.ts --stems <folder>   # prints the stem report for a folder of Live stems; checks nothing
 ```
 
 - **While Live is open,** it holds port 9885. Set `SECOND_CHAIR_PORT=19885` in both terminals to run the fake on a spare port.

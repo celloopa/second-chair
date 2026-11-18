@@ -7,10 +7,10 @@ import { readWav, type Audio } from "./onsets.ts";
 import { analyze, reading, fft } from "./loudness.ts";
 import { keyCard, SCALES } from "../vendor/spur/theory.ts";
 
-const SR = 22050;        // everything is measured at this rate, as the scripts did
-const HOP = 256;         // onset frames, about 11.6 ms
-const FPS = SR / HOP;
-const KEY_HOP = 1024;    // chroma frames, about 46 ms
+export const SR = 22050;        // everything is measured at this rate, as the scripts did
+export const HOP = 256;         // onset frames, about 11.6 ms
+export const FPS = SR / HOP;
+export const KEY_HOP = 1024;    // chroma frames, about 46 ms
 
 /** Key profiles: how much each note of the scale counts, for a major and a minor key on C. */
 const PROFILES: Record<string, [number[], number[]]> = {
@@ -25,12 +25,12 @@ const PROFILES: Record<string, [number[], number[]]> = {
     [0.220, 0.006, 0.104, 0.123, 0.019, 0.103, 0.012, 0.214, 0.062, 0.022, 0.061, 0.052]],
 };
 
-type Level = "high" | "medium" | "low";
-type Mode = "major" | "minor";
-const r1 = (x: number) => Math.round(x * 10) / 10;
-const r2 = (x: number) => Math.round(x * 100) / 100;
+export type Level = "high" | "medium" | "low";
+export type Mode = "major" | "minor";
+export const r1 = (x: number) => Math.round(x * 10) / 10;
+export const r2 = (x: number) => Math.round(x * 100) / 100;
 const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
-const mean = (a: ArrayLike<number>) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; };
+export const mean = (a: ArrayLike<number>) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; };
 
 // ---------------------------------------------------------------- audio in
 
@@ -64,7 +64,7 @@ export function resample(x: Float32Array, up: number, down: number): Float32Arra
 }
 
 /** Magnitude spectra of Hann-windowed frames, centred with zero padding (as the scripts' numpy code), two real frames per FFT. */
-function stft(x: Float32Array, n: number, hop: number, each: (frame: number, mag: Float64Array) => void): number {
+export function stft(x: Float32Array, n: number, hop: number, each: (frame: number, mag: Float64Array) => void): number {
   const pad = n / 2, frames = Math.floor(x.length / hop) + 1, half = n / 2;
   const win = new Float64Array(n);
   for (let i = 0; i < n; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1));
@@ -92,13 +92,13 @@ function stft(x: Float32Array, n: number, hop: number, each: (frame: number, mag
 
 // ---------------------------------------------------------------- onsets and tempo
 
-type Band = { lo: number; hi: number; nb: number };
+export type Band = { lo: number; hi: number; nb: number };
 
 /** Spectral flux in log-spaced bands between lo and hi Hz, one value per HOP; several band sets share one STFT. */
-type Filters = { k0: number; w: Float64Array }[];
+export type Filters = { k0: number; w: Float64Array }[];
 
 /** Triangular filters, log-spaced between lo and hi Hz (empty ones dropped), over the bins of an n-point FFT. */
-function makeBanks(sets: Band[], n: number): Filters[] {
+export function makeBanks(sets: Band[], n: number): Filters[] {
   const half = n / 2, binHz = SR / n;
   return sets.map(({ lo, hi, nb }) => {
     const edges = Array.from({ length: nb + 2 }, (_, i) => lo * Math.pow(hi / lo, i / (nb + 1)));
@@ -126,7 +126,7 @@ function bandDb(mag: ArrayLike<number>, fl: Filters, D: Float64Array, row: numbe
 }
 
 /** Spectral flux in log-spaced bands between lo and hi Hz, one value per HOP; several band sets share one STFT. */
-function bandOnsets(x: Float32Array, n: number, sets: Band[]): Float64Array[] {
+export function bandOnsets(x: Float32Array, n: number, sets: Band[]): Float64Array[] {
   const banks = makeBanks(sets, n);
   const frames = Math.floor(x.length / HOP) + 1;
   const D = banks.map((fl) => new Float64Array(frames * fl.length));
@@ -224,9 +224,9 @@ function strength(o0: Float64Array, bpm: number): number {
   return Math.hypot(re, im) / o0.length;
 }
 
-const localPeaks = (v: ArrayLike<number>) => { const out: number[] = []; for (let i = 1; i < v.length - 1; i++) if (v[i] > v[i - 1] && v[i] >= v[i + 1]) out.push(i); return out; };
+export const localPeaks = (v: ArrayLike<number>) => { const out: number[] = []; for (let i = 1; i < v.length - 1; i++) if (v[i] > v[i - 1] && v[i] >= v[i + 1]) out.push(i); return out; };
 
-function tempoFourier(o: Float64Array, top = 8): [number, number][] {
+export function tempoFourier(o: Float64Array, top = 8): [number, number][] {
   const o0 = centred(o);
   const grid = Array.from({ length: 620 }, (_, i) => 45 + 0.25 * i);
   const m = grid.map((b) => strength(o0, b));
@@ -237,7 +237,7 @@ function tempoFourier(o: Float64Array, top = 8): [number, number][] {
   }).sort((a, b) => b[1] - a[1]);
 }
 
-function tempoAcf(o: Float64Array, top = 8): [number, number][] {
+export function tempoAcf(o: Float64Array, top = 8): [number, number][] {
   const o0 = centred(o), n = o0.length;
   let size = 1; while (size < 2 * n) size <<= 1;
   const re = new Float64Array(size), im = new Float64Array(size);
@@ -254,8 +254,25 @@ function tempoAcf(o: Float64Array, top = 8): [number, number][] {
   }).sort((a, b) => b[1] - a[1]).slice(0, top);
 }
 
+/** The pulse from an onset curve: the periodicity peak both methods back, and the reading to lead with. */
+export function pulse(all: Float64Array) {
+  const tf = tempoFourier(all), ta = tempoAcf(all);
+  // The pulse both methods back: each periodicity peak scores its own strength plus the autocorrelation peak at the
+  // same tempo, its half or its double. (The strongest periodicity alone can be a syncopated hat: 175 in a 140 song.)
+  const related = (p: number, q: number) => [1, 2, 0.5].some((m) => Math.abs(p / (q * m) - 1) < 0.02);
+  const fmax = tf[0]?.[1] || 1, amax = Math.max(1e-9, ...ta.map(([, c]) => c));
+  const support = (b: number) => Math.max(0, ...ta.filter(([a]) => related(a, b)).map(([, c]) => c / amax));
+  const scored = tf.filter(([b]) => b >= 50 && b <= 200).map(([b, f]) => ({ b, score: f / fmax + support(b), acf: support(b) > 0 }))
+    .sort((p, q) => q.score - p.score);
+  const t0 = scored[0]?.b ?? tf[0]?.[0] ?? 120;
+  // The strongest pulse is often the hats (the double) or the bar (the half). Lead with the reading nearest 110 BPM,
+  // in octaves, as most songs are counted between about 75 and 150; the half and the double sit beside it.
+  const lead = [t0 / 2, t0, t0 * 2].filter((h) => h >= 50 && h <= 200).sort((p, q) => Math.abs(Math.log2(p / 110)) - Math.abs(Math.log2(q / 110)))[0] ?? t0;
+  return { tf, ta, t0, lead, acfAgrees: !!scored[0]?.acf };
+}
+
 /** Dynamic-programming beat tracker (Ellis 2007). Beat positions, in frames. */
-function beatTrack(o: Float64Array, bpm: number, tight = 100): number[] {
+export function beatTrack(o: Float64Array, bpm: number, tight = 100): number[] {
   const period = 60 * FPS / bpm, half = Math.ceil(period), n = o.length;
   const g: number[] = [];
   for (let i = -half; i <= half; i++) g.push(Math.exp(-0.5 * (i * 32 / period) ** 2));
@@ -291,7 +308,7 @@ function lineFit(xs: number[], ys: number[]): [number, number] {
 }
 
 /** A straight line through the beats: the tempo, how much the beats wobble off it, and each half's tempo. */
-function fitBpm(beats: number[]) {
+export function fitBpm(beats: number[]) {
   const bt = beats.map((b) => b / FPS), n = bt.length;
   if (n < 12) return null;
   const k0 = Math.floor(0.1 * n), k1 = Math.floor(0.9 * n), h = n >> 1;
@@ -304,7 +321,7 @@ function fitBpm(beats: number[]) {
 }
 
 /** The strongest onset within w frames of each position. */
-function at(env: Float64Array, pos: number[], w = 4): number[] {
+export function at(env: Float64Array, pos: number[], w = 4): number[] {
   return pos.map((p) => {
     let m = 0;
     for (let i = Math.max(0, Math.round(p - w)); i <= Math.min(env.length - 1, Math.round(p + w)); i++) if (env[i] > m) m = env[i];
@@ -315,7 +332,7 @@ function at(env: Float64Array, pos: number[], w = 4): number[] {
 // ---------------------------------------------------------------- key
 
 /** Spectral peaks per frame, with interpolated frequency (as a MIDI number) and amplitude. */
-function peakChroma(x: Float32Array, rate: number, n: number, hop: number, fmin: number, fmax: number, relDb = 40, absDb = 70) {
+export function peakChroma(x: Float32Array, rate: number, n: number, hop: number, fmin: number, fmax: number, relDb = 40, absDb = 70) {
   const binHz = rate / n, k0 = Math.max(1, Math.ceil(fmin / binHz)), k1 = Math.min(Math.floor(fmax / binHz), n / 2 - 1);
   const width = k1 - k0 + 3; // bins k0-1 .. k1+1
   const rows: Float32Array[] = [];
@@ -344,7 +361,7 @@ function peakChroma(x: Float32Array, rate: number, n: number, hop: number, fmin:
 }
 
 /** How far the song sits from A440, in semitones (-0.5 to 0.5), and how much the peaks agree on it (0 to 1). */
-function tuningOf(midi: number[], amp: number[]) {
+export function tuningOf(midi: number[], amp: number[]) {
   let re = 0, im = 0, total = 0;
   for (let i = 0; i < midi.length; i++) {
     const dev = midi[i] - Math.round(midi[i]);
@@ -354,7 +371,7 @@ function tuningOf(midi: number[], amp: number[]) {
 }
 
 /** A 12-note chroma per frame, folded with the measured tuning. */
-function chromaFrames(p: ReturnType<typeof peakChroma>, tuning: number): Float64Array {
+export function chromaFrames(p: ReturnType<typeof peakChroma>, tuning: number): Float64Array {
   const C = new Float64Array(p.frames * 12);
   for (let i = 0; i < p.midi.length; i++) {
     const m = p.midi[i] - tuning, r = Math.round(m);
@@ -370,9 +387,9 @@ function pearson(a: number[], b: number[]): number {
   return aa && bb ? ab / Math.sqrt(aa * bb) : 0;
 }
 
-type KeyScore = { pc: number; mode: Mode; r: number };
+export type KeyScore = { pc: number; mode: Mode; r: number };
 /** Every key's correlation with each profile, and the average of the three. */
-function rankKeys(ch: number[]) {
+export function rankKeys(ch: number[]) {
   const per: Record<string, KeyScore[]> = {};
   const avg = new Map<string, KeyScore>();
   for (const [name, [maj, min]] of Object.entries(PROFILES)) {
@@ -390,7 +407,7 @@ function rankKeys(ch: number[]) {
 }
 
 /** The chroma of the frames between two times, each loud-enough frame counting once (per-frame normalised). */
-function chromaBetween(C: Float64Array, frameSeconds: number, from: number, to: number, minEnergy: number): number[] {
+export function chromaBetween(C: Float64Array, frameSeconds: number, from: number, to: number, minEnergy: number): number[] {
   const v = new Array(12).fill(0);
   const f0 = Math.max(0, Math.ceil(from / frameSeconds)), f1 = Math.min(C.length / 12, Math.ceil(to / frameSeconds));
   for (let f = f0; f < f1; f++) {
@@ -401,7 +418,7 @@ function chromaBetween(C: Float64Array, frameSeconds: number, from: number, to: 
   return v;
 }
 
-function percentile(a: number[], q: number): number {
+export function percentile(a: number[], q: number): number {
   const s = [...a].sort((x, y) => x - y);
   if (!s.length) return 0;
   const pos = (s.length - 1) * q / 100, lo = Math.floor(pos);
@@ -410,11 +427,11 @@ function percentile(a: number[], q: number): number {
 
 // ---------------------------------------------------------------- naming
 
-const SHARP_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+export const SHARP_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const FLAT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
 
 /** The key's name, its scale notes, and a speller for any note, in the key's own spelling (B♭ in G minor, not A♯). */
-function keyInfo(pc: number, mode: Mode) {
+export function keyInfo(pc: number, mode: Mode) {
   const steps = SCALES[mode].steps;
   // F♯ major and D♯ minor (six sharps) are also G♭ major and E♭ minor (six flats). Lead with the sharps, as the
   // song analysis notes do; give the flat name beside it.
@@ -425,7 +442,7 @@ function keyInfo(pc: number, mode: Mode) {
   const spell = (p: number) => inKey.get(p) ?? (flats ? FLAT_NAMES : SHARP_NAMES)[p];
   return { name: `${notes[0]} ${mode}`, notes, spell, also: six ? `${FLAT_NAMES[pc]} ${mode}` : null };
 }
-const relativeOf = (pc: number, mode: Mode): [number, Mode] => (mode === "major" ? [(pc + 9) % 12, "minor"] : [(pc + 3) % 12, "major"]);
+export const relativeOf = (pc: number, mode: Mode): [number, Mode] => (mode === "major" ? [(pc + 9) % 12, "minor"] : [(pc + 3) % 12, "major"]);
 
 // ---------------------------------------------------------------- the report
 
@@ -450,18 +467,7 @@ export function analyzeSong(file: string, audio?: Audio): SongAnalysis {
   const drums = percussiveLanes(x, [{ lo: 30, hi: 150, nb: 8 }, { lo: 900, hi: 4000, nb: 16 }, { lo: 6000, hi: 10500, nb: 8 }]);
   const [kick, snare, hats] = drums.lanes;
   const lanes: [string, Float64Array][] = [["kick", kick], ["snare", snare], ["hats", hats]];
-  const tf = tempoFourier(all), ta = tempoAcf(all);
-  // The pulse both methods back: each periodicity peak scores its own strength plus the autocorrelation peak at the
-  // same tempo, its half or its double. (The strongest periodicity alone can be a syncopated hat: 175 in a 140 song.)
-  const related = (p: number, q: number) => [1, 2, 0.5].some((m) => Math.abs(p / (q * m) - 1) < 0.02);
-  const fmax = tf[0]?.[1] || 1, amax = Math.max(1e-9, ...ta.map(([, c]) => c));
-  const support = (b: number) => Math.max(0, ...ta.filter(([a]) => related(a, b)).map(([, c]) => c / amax));
-  const scored = tf.filter(([b]) => b >= 50 && b <= 200).map(([b, f]) => ({ b, score: f / fmax + support(b), acf: support(b) > 0 }))
-    .sort((p, q) => q.score - p.score);
-  const t0 = scored[0]?.b ?? tf[0][0];
-  // The strongest pulse is often the hats (the double) or the bar (the half). Lead with the reading nearest 110 BPM,
-  // in octaves, as most songs are counted between about 75 and 150; the half and the double sit beside it.
-  const lead = [t0 / 2, t0, t0 * 2].filter((h) => h >= 50 && h <= 200).sort((p, q) => Math.abs(Math.log2(p / 110)) - Math.abs(Math.log2(q / 110)))[0] ?? t0;
+  const { tf, ta, t0, lead, acfAgrees } = pulse(all);
   const tracked = new Map<string, { asked: number; beats: number[]; fit: ReturnType<typeof fitBpm>; onBeat: number; between: number }>();
   for (const [label, h] of [["half", lead / 2], ["measured", lead], ["double", lead * 2]] as [string, number][]) {
     if (h < 50 || h > 200) continue;
@@ -471,7 +477,6 @@ export function analyzeSong(file: string, audio?: Audio): SongAnalysis {
   }
   const main = tracked.get("measured")!;
   const bpm = main.fit?.bpm ?? lead;
-  const acfAgrees = !!scored[0]?.acf;
   const steady = !!main.fit && Math.abs(main.fit.first_half - main.fit.second_half) < 0.5 && main.fit.wobble_ms < 40;
   const tempoConf: Level = acfAgrees && steady ? "high" : acfAgrees || steady ? "medium" : "low";
   const reading1 = (label: string) => {

@@ -85,10 +85,14 @@ Tool: `audio_analyze`. It runs on your computer and reads the file directly; Liv
 | Say | What happens |
 |---|---|
 | "What key and tempo is this song? `<path to a WAV>`" | The key, the runner-up and the relative key with their notes; the tempo with its half and double; the tuning; how often the groove and the chords repeat; where the drums land in one bar (or that there are no clear drums); a rough bass note per bar; and the loudness. Each with a confidence and a way to check it by ear. |
+| "Analyze it with the stems" (after you split it with Separate Stems) | Each stem's level, so a missing part is obvious ("there are no drums"). The tempo the drums make you feel. The bass line and when it plays. The singer's range: the lowest and highest held notes, where the voice sits most of the time, and the notes with the most time. The key the chords lean to and the key the melody leans to. A rough chord loop. |
+| "What key suits this singer?" | A few keys to try, each with where the melody would sit. They are options: you and the singer choose by ear. |
 
 Tool: `song_analyze`. It runs on your computer and reads the file directly; Live doesn't need to be open. A 2-minute song takes a few seconds.
 
 **New.** Checked on a made-up loop and a few real songs. It can't decide a key from its relative (they share every note) or whether the beat feels half or double: you decide by ear.
+
+**Stems:** Live Suite 12.3 or later splits a song, by hand. Save the set, then right-click the clip and pick **Separate Stems to New Audio Tracks**. Tools can't start it. A 2-minute song can take several minutes. Claude then reads the stem files Live wrote, in about 10 to 20 seconds. Stems aren't perfectly clean, so a stray note may be leakage from another part.
 
 Limits: **WAV files only** for now (16, 24 or 32-bit). **You export**; Live gives tools no export. Claude can tell you the export settings.
 

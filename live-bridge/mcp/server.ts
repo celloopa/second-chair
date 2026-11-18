@@ -19,11 +19,12 @@ import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
 import { analyzeSong } from "./songanalysis.ts";
+import { analyzeStems, STEM_NAMES, type StemFiles } from "./stems.ts";
 import { readProfile, profileName, personalize, writeProfile, profilePath, QUESTIONS, readPlugins, writePlugins, findPlugins, pluginsPath, PLUGIN_OUTLINE } from "./profile.ts";
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.12.0";
+const VERSION = "0.12.1";
 const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -72,6 +73,40 @@ function bridge(action: string, params: Record<string, unknown> = {}, waitSecond
 // ---------- tool definitions ----------
 
 type Tool = { name: string; description: string; inputSchema: Record<string, unknown>; run: (a: any) => Promise<unknown> | unknown };
+/** The stem files under a group track Live's Separate Stems made: each child track's audio clip (the longest one), by its name. */
+async function stemGroupFiles(index: number) {
+  const session = await bridge("get_session") as { tempo?: number; tracks: { index: number; name: string; kind: string; is_group?: boolean; in_group?: string }[] };
+  const g = session.tracks.find((t) => t.index === index);
+  if (!g) throw new Error(`There's no track ${index}. Call live_status for the track numbers.`);
+  if (!g.is_group) throw new Error(`Track ${index} (${g.name}) isn't a group track. Give the index of the group Separate Stems made (it's named "<song> Stems"), or give stems as file paths.`);
+  const kids = session.tracks.filter((t) => t.index > index && t.in_group === g.name);
+  const files: StemFiles = {}, notes: string[] = [];
+  for (const t of kids) {
+    if (t.kind !== "audio") continue;
+    const arr = await bridge("get_arrangement", { track: t.index }) as { tracks: { clips: { name: string; start_bar: number; bars: number; kind: string }[] }[] };
+    const ac = (arr.tracks[0]?.clips ?? []).filter((c) => c.kind === "audio").sort((p, q) => q.bars - p.bars);
+    let ref: Record<string, unknown> | null = ac[0] ? { track: t.index, bar: ac[0].start_bar, name: ac[0].name } : null;
+    if (!ref) {
+      const tr = await bridge("get_track", { track: t.index }) as { clips: { slot: number; midi: boolean; length_beats: number }[] };
+      const sc = tr.clips.filter((c) => !c.midi).sort((p, q) => q.length_beats - p.length_beats)[0];
+      if (sc) ref = { track: t.index, slot: sc.slot };
+    }
+    if (!ref) { notes.push(`${t.name}: no audio clip`); continue; }
+    const info = await bridge("audio_clip_info", { clip: ref }) as { file: string };
+    // Live names the file "<song> [date time] (Vocals).wav" and the track "Vocals <song>": the file's label first,
+    // then the track name's first word (a song called "Bass Drop" mustn't make every stem the bass)
+    const file = String(info.file ?? "").toLowerCase(), first = t.name.trim().split(/\s+/)[0].toLowerCase();
+    const k = STEM_NAMES.find((n) => file.includes(`(${n})`) || (n === "others" && file.includes("(other)")))
+      ?? STEM_NAMES.find((n) => first === n || first === n.replace(/s$/, ""));
+    if (!k) { notes.push(`${t.name}: not a Vocals, Drums, Bass or Others stem, skipped`); continue; }
+    if (!info.file) { notes.push(`${t.name}: Live gave no file`); continue; }
+    if (files[k]) { notes.push(`${t.name}: a second ${k} stem, skipped`); continue; }
+    files[k] = info.file;
+  }
+  if (!Object.keys(files).length) throw new Error(`The group ${g.name} (track ${index}) has no stem clips with files.${notes.length ? " " + notes.join("; ") + "." : ""}`);
+  return { files, tempo: Number(session.tempo) || undefined, group: { track: index, name: g.name, stems: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, path.basename(f)])), notes } };
+}
+
 const int = (description: string, extra: Record<string, unknown> = {}) => ({ type: "integer", description, ...extra });
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const NOTE = obj({
@@ -122,7 +157,7 @@ async function catalog(tree: string, refresh: boolean) {
 // The second-chair skill (.claude/skills/second-chair/SKILL.md in this repo) is the studio guide. Claude Code loads it as
 // a skill; other MCP clients (HeyClicky) get the same file from the studio_guide tool, so there is one source.
 const GUIDE_PATH = path.join(import.meta.dirname, "..", "..", ".claude", "skills", "second-chair", "SKILL.md");
-const PLAYBOOKS = ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording"];
+const PLAYBOOKS = ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording", "song-analysis"];
 function studioGuide(section?: string, playbook?: string): string {
   if (playbook) {
     if (!PLAYBOOKS.includes(playbook)) throw new Error(`No playbook "${playbook}". Playbooks: ${PLAYBOOKS.join(", ")}`);
@@ -809,15 +844,31 @@ const tools: Tool[] = [
       }
       return out;
     } },
-  { name: "song_analyze", description: "Measure what the music in a full mix is doing, since you can't hear it: the key (with the runner-up, the relative key always named, and the scale's notes), tuning in cents from A440, tempo with the half and double readings side by side, how often the music repeats, a one-bar map of where low, mid and high hits land (kick, snare, hats), a rough bass note per bar, and loudness and tone (audio_analyze's numbers). Each reading has a confidence and a check-by-ear step. Give file (a full path to a WAV, or a name to look for in the sample folders) or clip (an audio clip in Live: {track, bar, name} or {track, slot}). WAV only. It changes nothing, and file works without Live; a 2-minute song takes a few seconds. These are measurements and options, not answers: report them, then let the user decide by ear, above all which key feels like home (a key and its relative share every note) and whether the beat feels like the half or the double. A full mix can't tell drums from other parts, or the bass from a low kick.",
+  { name: "song_analyze", description: "Measure what the music in a song is doing, since you can't hear it: the key (with the runner-up, the relative key always named, and the scale's notes), tuning in cents from A440, tempo with the half and double readings side by side, how often the music repeats, a one-bar map of where low, mid and high hits land (kick, snare, hats), a rough bass note per bar, and loudness and tone (audio_analyze's numbers). Each reading has a confidence and a check-by-ear step. Give file (a full path to a WAV, or a name to look for in the sample folders) or clip (an audio clip in Live: {track, bar, name} or {track, slot}). WAV only. It changes nothing, and file works without Live; a 2-minute song takes a few seconds. These are measurements and options, not answers: report them, then let the user decide by ear, above all which key feels like home (a key and its relative share every note) and whether the beat feels like the half or the double. A full mix can't tell drums from other parts, or the bass from a low kick: stems settle that. stems: the index of the group track Live's Separate Stems made (\"<song> Stems\"; the tool reads each stem clip's file), or WAV paths {vocals, drums, bass, others} (any of the four). With stems it adds each stem's level (a near-silent stem means that part isn't in the song), the tempo feel from where the snare lands, the bass line and its timeline, the singer's range (held notes, the usual 10th-90th zone, the notes with the most time), a cleaner key and chord loop from the Others stem, the key the chords lean to and the key the melody leans to, and keys that suit the singer as options. A stems run takes about 10 to 20 seconds for a 2-minute song. Separate Stems itself is a click in Live (save the set first, then right-click the clip > Separate Stems to New Audio Tracks); tools can't start it.",
     inputSchema: obj({ file: { type: "string", description: "Full path to a WAV, or a name to find in the sample folders" },
-      clip: { type: "object", description: "Or an audio clip in Live: {track, bar, name} or {track, slot}" } }),
+      clip: { type: "object", description: "Or an audio clip in Live: {track, bar, name} or {track, slot}" },
+      stems: { type: ["integer", "object"], description: "The stem group track's index (from live_status: the group Separate Stems made), or {vocals, drums, bass, others}: full paths to stem WAVs. With stems, file or clip is optional: it's the full mix; without it the stems are added together.",
+        properties: { vocals: { type: "string" }, drums: { type: "string" }, bass: { type: "string" }, others: { type: "string" } }, additionalProperties: false } }),
     run: async (a) => {
-      if ((a.file === undefined) === (a.clip === undefined)) throw new Error("Give file or clip (one of them).");
-      const file = a.file !== undefined ? (path.isAbsolute(String(a.file)) && fs.existsSync(String(a.file)) ? String(a.file) : findAudioFile(String(a.file)))
-        : (await bridge("audio_clip_info", { clip: a.clip }) as { file: string }).file;
-      if (!file) throw new Error("Live gave no file for that clip.");
-      return analyzeSong(file);
+      if (a.stems === undefined && (a.file === undefined) === (a.clip === undefined)) throw new Error("Give file or clip (one of them), or stems.");
+      if (a.file !== undefined && a.clip !== undefined) throw new Error("Give file or clip, not both.");
+      const mixFile = a.file !== undefined ? (path.isAbsolute(String(a.file)) && fs.existsSync(String(a.file)) ? String(a.file) : findAudioFile(String(a.file)))
+        : a.clip !== undefined ? (await bridge("audio_clip_info", { clip: a.clip }) as { file: string }).file : undefined;
+      if ((a.file !== undefined || a.clip !== undefined) && !mixFile) throw new Error("Live gave no file for that clip.");
+      if (a.stems === undefined) return analyzeSong(mixFile!);
+      if (typeof a.stems === "number") {
+        const { files, tempo, group } = await stemGroupFiles(a.stems);
+        const out = analyzeStems(files, { mixFile, liveTempo: tempo });
+        return { stem_group: group, ...out };
+      }
+      const files: StemFiles = {};
+      for (const n of STEM_NAMES) {
+        const f = (a.stems as Record<string, unknown>)[n];
+        if (f === undefined) continue;
+        if (!path.isAbsolute(String(f)) || !fs.existsSync(String(f))) throw new Error(`The ${n} stem ${JSON.stringify(f)} isn't a file. Give full paths to the stem WAVs.`);
+        files[n] = String(f);
+      }
+      return analyzeStems(files, { mixFile });
     } },
   { name: "live_audio_clip_info", description: "What Live reports about an audio clip (read-only): its file, warp state, and the raw warp markers, start and end markers and position. For checking a clip before live_align_audio, and for reporting a wrong reading.",
     inputSchema: obj({ clip: { type: "object", description: "{track, bar, name} for an Arrangement clip or {track, slot} for a Session clip" } }, ["clip"]),
@@ -910,7 +961,7 @@ const tools: Tool[] = [
   // --- the studio guide (the second-chair skill), for clients that can't load skills ---
   { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the gear and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the second-chair skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
     inputSchema: obj({ section: { type: "string", description: "Words from a section title: \"how to work\", \"start\", \"playbooks\", \"which tool\", \"safety\", \"facts\", \"fixes\", \"heyclicky\", \"working on the tools\", \"mac\", \"my studio\"" },
-      playbook: { type: "string", enum: ["session-start", "sound-design", "mixing", "mastering", "arrangement", "recording"], description: "Step-by-step best practices for one kind of job; read it before the first write of that kind" } }),
+      playbook: { type: "string", enum: PLAYBOOKS, description: "Step-by-step best practices for one kind of job; read it before the first write of that kind" } }),
     run: (a) => ({ mcpContent: [{ type: "text", text: personalize(studioGuide(a.section ? String(a.section) : undefined, a.playbook ? String(a.playbook) : undefined)) }] }) },
   { name: "my_studio", description: "The user's studio profile: their name, how they like to be taught, their controller, interface, instruments, sample folders and plugins, and fixes that are about their machine. Read it once at the start of a session (no arguments). If there is none yet, this returns the questions to ask: ask a few at a time, in conversation, and don't guess. Save with text (the whole profile as Markdown, keeping the '- **Name:** ...' line): only what the user told you, and only when they agree to save it. Saving keeps the previous version next to it. Works without Live.",
     inputSchema: obj({ text: { type: "string", description: "The whole profile as Markdown, to save. Leave out to read" } }),

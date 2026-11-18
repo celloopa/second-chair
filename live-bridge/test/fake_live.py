@@ -620,6 +620,19 @@ def _fake_vocal_stack(self):
         t.arrangement_clips = [ArrAudio(path, name + " take", 16.0, 4.0)]
         SONG.tracks.append(t); out.append(SONG.tracks.index(t))
     return {"lead": out[0], "stack": out[1], "tempo": SONG.tempo}
+def _fake_stem_group(self, files, song="Made-up song"):
+    """What Live's Separate Stems leaves: a group track "<song> Stems" holding one audio track per stem, named
+    "Vocals <song>" and so on, each with the stem's file as an Arrangement clip from bar 1."""
+    g = Track("%s Stems" % song, midi=False)
+    g.is_foldable = True
+    SONG.tracks.append(g)
+    for kind in ("vocals", "drums", "bass", "others"):
+        if kind not in files: continue
+        t = Track("%s %s" % (kind.capitalize(), song), midi=False)
+        t.is_grouped, t.group_track = True, g
+        t.arrangement_clips = [ArrAudio(files[kind], "%s %s" % (kind.capitalize(), song), 0.0, 8.0)]
+        SONG.tracks.append(t)
+    return {"group": SONG.tracks.index(g)}
 def _fake_stack_markers(self, track):
     c = SONG.tracks[int(track)].arrangement_clips[0]
     return {"markers": [[round(m.sample_time / c.sample_rate, 4), round(m.beat_time, 4)] for m in c.warp_markers], "warping": c.warping}
@@ -698,9 +711,10 @@ def _fake_clear_recorded(self, track):
     m.volume.recorded, m.panning.recorded = [], []
     return {"cleared": True}
 SecondChair.SecondChair._a_fake_clear_recorded = _fake_clear_recorded
-SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_vocal_stack", "fake_stack_markers")
+SecondChair.ACTIONS = SecondChair.ACTIONS + ("fake_vocal_stack", "fake_stack_markers", "fake_stem_group")
 SecondChair.SecondChair._a_fake_vocal_stack = _fake_vocal_stack
 SecondChair.SecondChair._a_fake_stack_markers = _fake_stack_markers
+SecondChair.SecondChair._a_fake_stem_group = _fake_stem_group
 def _fake_recorded(self, track):
     m = SONG.tracks[int(track)].mixer_device
     pts, pan = getattr(m.volume, "recorded", []), [v for _, v in getattr(m.panning, "recorded", [])]
