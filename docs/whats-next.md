@@ -16,7 +16,7 @@ These pass the tests against a stand-in for Live. The stand-in has been wrong be
 | Timeline edits | Placing, moving and deleting Arrangement clips; duplicating a track; copying a Session clip. |
 | Devices | Moving a device; reaching devices inside racks. |
 | Meters (`live_get_levels`) | The dB figure was checked on one PC. Not checked on a Mac. |
-| Second Chair Ears (`live_listen`) | Its peak matches Live's own meter on one PC. Not checked: the device on a return track, on Main or inside a rack. The 8 band numbers compare with each other; they aren't true dB per band. Not tried on a Mac. |
+| Second Chair Ears (`live_listen`) | Its peak matches Live's own meter on one PC. It works on a return track and on Main, and the loudest band follows a test tone. Not checked: the device inside a rack. A band reads true dB only for a tone at its centre; the bands overlap, so read them as a rough shape. Not tried on a Mac. |
 | Melodyne helper (`live_play_bars`) | Playing a range for Transfer. |
 | Measuring on a Mac (`audio_analyze`) | Proven on Windows only. |
 | The installer | Run for real on one Mac and one Windows PC, both of which already had an older setup. **Not run on a clean machine yet.** |

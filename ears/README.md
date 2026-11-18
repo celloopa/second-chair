@@ -30,7 +30,7 @@ Nothing is sent back to the device. The UDP side has no token, like Chord Coach:
 
 ## Check it in real Live
 
-Ask the user before each step that touches their Live. Use a new empty set. Steps 1 to 4 have been done once; steps 5 to 8 have not.
+Ask the user before each step that touches their Live. Use a new empty set. All eight steps have been done once, except the rack part of step 6.
 
 1. Copy `Second Chair Ears.amxd` and `ears.js` together into the User Library, for example `Presets\Audio Effects\Max Audio Effect\Second Chair Ears\`.
 2. Install this branch's Remote Script and **fully restart Live** (a script change needs it).
@@ -42,7 +42,7 @@ Ask the user before each step that touches their Live. Use a new empty set. Step
    - `peak_db` is close to Live's track meter with the fader at 0 dB.
    - Stop playback: within a second it reads `silent`.
 5. Tone check: play Operator's sine at 125 Hz, then 1 kHz, then 4 kHz. `most_energy` should follow.
-6. Move the device to a return track, to Main, and inside a rack. `track` should follow within about 2 seconds.
+6. Put the device on a return track, on Main, and inside a rack. `track` should be right within about 2 seconds. (The tools can't move a device into a rack: drag it by hand.)
 7. Put Ears on two tracks. Both should show.
 8. Delete the device. After 3 seconds `live_listen` should refuse.
 
@@ -51,9 +51,13 @@ Ask the user before each step that touches their Live. Use a new empty set. Step
 - The built `.amxd` loads from the User Library, `js ears.js` runs, and the bridge receives the OSC reports. So three build guesses held: the `aaaa` type code, plain `js` in a hand-written patch, and `udpsend`'s number types.
 - **Peak:** with Operator's sine, Ears last in the chain and the fader at 0 dB, Ears read -13.6 dB and Live's own peak readout showed -13.6. Over 14 levels from -62 to +4 dB, Ears and Live's meter stayed on one straight line.
 - **RMS:** 3.0 dB under the peak on a sine, as it should be.
+- **Tone (step 5):** Operator's sine at 123 Hz, 988 Hz and 3951 Hz. `most_energy` named the 125 Hz, 1 kHz and 4 kHz bands. The band a tone sits in reads the same as the whole signal's RMS (-16.7 against -16.6 dB), so a band's dB is true at its centre. The bands are wide: a pure tone puts about 40% of the share in its own band and about 25% and 15% in the two beside it.
+- **Return track and Main (step 6):** a device on return A and one on Main reported as track 4 and track 6, with the right names. Not done: a device inside a rack.
+- **Several devices (step 7):** three at once (a track, a return, Main) all showed. Reports were under 350 ms old.
+- **Delete (step 8):** after a device is deleted, `live_listen` refuses for that track and says where Ears still reports. With none left it refuses with the "drop it on the track" message.
 
 ## Still guesses
 
 - **Comparing levels.** Ears measures audio at its position in the device chain, before the track fader. Devices after it and the fader change Live's track meter, so the two only match with Ears last and the fader at 0 dB.
-- **Band levels.** `fffb~`'s gain scale isn't documented, so the 8 band numbers are for comparing with each other, not true dB per band.
+- **Band levels.** A band reads true dB for a tone at its centre (checked at three bands). Between centres and on real music the bands overlap, so read them as a rough shape.
 - **RMS window.** 12000 samples is a quarter second at 48 kHz and a little more at 44.1 kHz.
