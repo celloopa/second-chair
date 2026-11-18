@@ -4,9 +4,14 @@ import path from "node:path";
 import net from "node:net";
 import os from "node:os";
 import fs from "node:fs";
+import { synthLoop, writeWav16 } from "./song_loop.ts";
 
 // Live's tags come from a small stand-in tag file, so results don't depend on which packs are installed.
 const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.pid}.md`);
+// live_menu / live_save read a stand-in menu, log and project folder, never the real Live that may be open alongside.
+const MENU_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-menu-test-"));
+Object.assign(process.env, { SECOND_CHAIR_LIVE_MENU: path.join(MENU_DIR, "menu.json"), SECOND_CHAIR_LIVE_LOG: path.join(MENU_DIR, "Log.txt"),
+  SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500" });
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
   env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "my-song* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
@@ -478,6 +483,13 @@ const an = js(await expect("ok", "audio_analyze", { file: leadWav, reference: le
 if (typeof an.integrated_lufs !== "number" || an.channels !== 1 || an.against_reference?.louder_by_lu !== 0 || !Array.isArray(an.reading)) { failed++; console.log("!! analyze should give loudness, a reading and a zero difference against itself: " + JSON.stringify(an).slice(0, 300)); }
 await expect("refused", "audio_analyze", { file: path.join(os.tmpdir(), "fake-live-vocal_97_A#m.wav") }, "isn't a WAV file");
 await expect("refused", "audio_analyze", {}, "file or clip");
+// Song analysis (song_analyze): the made-up G minor loop at 92 BPM (test/song_loop.ts; test/song_analyze.ts checks it in detail).
+const loopWav = path.join(os.tmpdir(), `second-chair-song-loop-${process.pid}.wav`);
+writeWav16(loopWav, synthLoop());
+const song = js(await expect("ok", "song_analyze", { file: loopWav }, "\"best\": \"G minor\""));
+if (Math.abs(song.tempo?.bpm - 92) > 0.25) { failed++; console.log(`!! song_analyze should find 92 BPM, got ${song.tempo?.bpm}`); }
+fs.rmSync(loopWav, { force: true });
+await expect("refused", "song_analyze", {}, "file or clip");
 await expect("ok", "studio_guide", { playbook: "mastering" }, "LUFS");
 if (js(await expect("ok", "live_status", {}, "bridge")).version_warning) { failed++; console.log("!! a newer server with a current Remote Script shouldn't warn"); }
 
@@ -546,6 +558,45 @@ await expect("refused", "live_listen", { track: 99 }, "doesn't exist");
 await fakeOnly("fake_ears", {}); // the device is removed: after 3 s of silence it counts as gone
 await new Promise((r) => setTimeout(r, 3400));
 await expect("refused", "live_listen", {}, "no Second Chair Ears device is reporting");
+
+// Live's menu bar (live_menu, live_save): a stand-in menu. Real Live is never touched here.
+const item = (name: string, id: number, enabled = true) => ({ name, id, enabled, checked: false });
+fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version: "12.4.16", menus: [
+  { name: "File", items: [item("New Live Set", 2070), item("Save Live Set", 2081), item("Save Live Set As...", 2082), item("Save a Copy...", 2083), item("Quit", 2091)] },
+  { name: "Edit", items: [item("Consolidate", 2139)] },
+  { name: "Create", items: [item("Separate Stems to New Audio Tracks", 2175, false)] },
+  { name: "View", items: [item("Browser", 2229), item("Full Screen", 2200), { name: "Zoom", enabled: true, checked: false, items: [item("Zoom In", 2203)] }] }] }));
+fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_LOG!, "info: started\n");
+fs.writeFileSync(path.join(MENU_DIR, "my-song.als"), "");
+await expect("ok", "live_menu", { path: "view > browser" }, "\"fired\": \"View > Browser\"");
+await expect("ok", "live_menu", { path: "View > Zoom > Zoom In" }, "Only the view changed");
+await expect("refused", "live_menu", { path: "View > Browsr" }, "Close matches: \"View > Browser\"");
+await expect("refused", "live_menu", { path: "File > Quit" }, "could lose work");
+await expect("refused", "live_menu", { path: "File > New Live Set" }, "could lose work");
+await expect("refused", "live_menu", { path: "View > Full Screen" }, "isn't on live_menu's list");
+await expect("refused", "live_menu", { path: "Edit > Consolidate" }, "isn't on live_menu's list");
+await expect("refused", "live_menu", { path: "Create > Separate Stems to New Audio Tracks" }, "greyed out");
+await expect("refused", "live_menu", { path: "File > Save Live Set" }, "use live_save");
+// The stand-in Live never clears its *, so live_save must fire Save, then say it didn't land and ask for Ctrl+S.
+await expect("refused", "live_save", {}, "please press Ctrl+S");
+// A message box appearing in Live's log stops the wait and is reported.
+setTimeout(() => fs.appendFileSync(process.env.SECOND_CHAIR_LIVE_LOG!, "info: Message Box: The file could not be written.\n"), 500);
+await expect("refused", "live_save", {}, "The file could not be written");
+// Live 12.4.16 answered Save with its Save As window for a set copied from the default set (seen 2026-11-18).
+const menuNow = JSON.parse(fs.readFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, "utf8"));
+fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ ...menuNow, opens: { "File > Save Live Set": "Save Live Set As:", "File > Save a Copy...": "Save a Copy:" } }));
+await expect("refused", "live_save", {}, "Live opened its Save As window");
+await expect("refused", "live_save", {}, "already has \"Save Live Set As:\" open");
+await expect("ok", "live_menu", { path: "File > Save a Copy" }, 'opened: \\"Save a Copy:');
+const fired = fs.readFileSync(path.join(os.tmpdir(), `second-chair-test-${process.pid}`, "menu-fired.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l).path);
+if (fired.join("|") !== "View > Browser|View > Zoom > Zoom In|File > Save Live Set|File > Save Live Set|File > Save Live Set|File > Save a Copy...") { failed++; console.log("!! live_menu fired the wrong commands: " + fired.join(" | ")); }
+// A set file last saved by an older Live: Save would open Save As, so live_save fires nothing and says why.
+fs.writeFileSync(path.join(MENU_DIR, "my-song.als"), (await import("node:zlib")).gzipSync('<?xml version="1.0" encoding="UTF-8"?>\n<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1d1">\n</Ableton>\n'));
+await expect("refused", "live_save", {}, "last saved by Ableton Live 12.1d1");
+fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ window: false })); // like fake_live: no Live window
+await expect("refused", "live_menu", { path: "View > Browser" }, "Live is not open");
+await expect("refused", "live_save", {}, "Save didn't go through");
+fs.rmSync(MENU_DIR, { recursive: true, force: true });
 
 // a client without the token must be refused by the bridge itself
 await new Promise<void>((res) => {

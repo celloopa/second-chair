@@ -1,4 +1,4 @@
-# What you can do (up to 0.10.2)
+# What you can do (up to 0.11.0)
 
 Everything here works by asking Claude in plain words. You don't need the tool names; they're listed so you can see what's behind each request.
 
@@ -79,6 +79,16 @@ Claude can't hear, so it measures a file the way a mastering meter does.
 Tool: `audio_analyze`. It runs on your computer and reads the file directly; Live doesn't need to be open.
 
 **Proven** on test signals with known answers and on real bounces. The mastering playbook is new and hasn't been through a full session.
+
+### What key, what tempo
+
+| Say | What happens |
+|---|---|
+| "What key and tempo is this song? `<path to a WAV>`" | The key, the runner-up and the relative key with their notes; the tempo with its half and double; the tuning; how often the groove and the chords repeat; where the drums land in one bar (or that there are no clear drums); a rough bass note per bar; and the loudness. Each with a confidence and a way to check it by ear. |
+
+Tool: `song_analyze`. It runs on your computer and reads the file directly; Live doesn't need to be open. A 2-minute song takes a few seconds.
+
+**New.** Checked on a made-up loop and a few real songs. It can't decide a key from its relative (they share every note) or whether the beat feels half or double: you decide by ear.
 
 Limits: **WAV files only** for now (16, 24 or 32-bit). **You export**; Live gives tools no export. Claude can tell you the export settings.
 
@@ -221,6 +231,13 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 
 ## 12. Undo
 
+### Saving without taking over your screen
+
+- "Save my set": `live_save` saves a set that already has a file, with Live in the background. It checks the save really happened: the `*` leaves the title, the file changes, and Live shows no message box.
+- A set that was made by an older Live, or a copy of a template, opens Save As the first time. The tool says so and asks you to press Ctrl+S once.
+- `live_menu` runs one of Live's menu commands by name, such as View > Browser, only when you ask. It never runs New, Open, Close Window or Quit.
+- Windows only for now. The Mac version is written but not tested.
+
 | Say | What happens |
 |---|---|
 | "Take that back." | Reverts the bridge's own last changes, newest first. Your own edits in between are left alone. |
@@ -247,7 +264,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-65 tools. "Reads" change nothing.
+68 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
@@ -256,10 +273,11 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 | Devices | `live_load_device`, `live_set_device_param`, `live_move_device`, `live_delete_device`, `live_set_routing` |
 | Automation | `live_record_automation`, `live_automate` |
 | Timeline and transport | `live_place_clip`, `live_arrangement_clip`, `live_play_bars`, `live_transport`, `live_fire_clip`, `live_fire_scene`, `live_create_scene`, `live_stop_track`, `live_set_tempo`, `live_set_scale` |
-| Audio | `live_bounce_track`, `live_align_audio`, `live_set_audio_clip`, `audio_analyze` |
+| Audio | `live_bounce_track`, `live_align_audio`, `live_set_audio_clip`, `audio_analyze`, `song_analyze` |
 | Sounds and samples | `live_load_sound`, `live_audition`, `live_build_drum_kit`, `live_swap_pad_sample`, `live_load_sample`, `live_set_simpler` |
 | MIDI | `live_write_clip`, `live_delete_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
+| Saving and Live's menus | `live_save`, `live_menu` |
 | Undo | `live_revert`, `live_undo` |
 | You and the guide | `my_studio`, `my_plugins`, `studio_guide` |
 | Chord Coach (optional device) | `live_show_on_keys`, `live_what_am_i_playing` |

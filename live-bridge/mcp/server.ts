@@ -13,14 +13,16 @@ import { chordMidi, voicing } from "../vendor/spur/voicing.ts";
 import { createRecentPlaying } from "../vendor/spur/recent-playing.ts";
 import { captureLive } from "./screenshot.ts";
 import { openSet } from "./liveset.ts";
+import { liveMenu, liveSave } from "./menu.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
+import { analyzeSong } from "./songanalysis.ts";
 import { readProfile, profileName, personalize, writeProfile, profilePath, QUESTIONS, readPlugins, writePlugins, findPlugins, pluginsPath, PLUGIN_OUTLINE } from "./profile.ts";
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.10.2";
+const VERSION = "0.11.0";
 const NEEDS_BRIDGE = "0.9.6"; // 0.9.8 only reworded the Remote Script's messages // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -728,6 +730,16 @@ const tools: Tool[] = [
       }
       return out;
     } },
+  { name: "song_analyze", description: "Measure what the music in a full mix is doing, since you can't hear it: the key (with the runner-up, the relative key always named, and the scale's notes), tuning in cents from A440, tempo with the half and double readings side by side, how often the music repeats, a one-bar map of where low, mid and high hits land (kick, snare, hats), a rough bass note per bar, and loudness and tone (audio_analyze's numbers). Each reading has a confidence and a check-by-ear step. Give file (a full path to a WAV, or a name to look for in the sample folders) or clip (an audio clip in Live: {track, bar, name} or {track, slot}). WAV only. It changes nothing, and file works without Live; a 2-minute song takes a few seconds. These are measurements and options, not answers: report them, then let the user decide by ear, above all which key feels like home (a key and its relative share every note) and whether the beat feels like the half or the double. A full mix can't tell drums from other parts, or the bass from a low kick.",
+    inputSchema: obj({ file: { type: "string", description: "Full path to a WAV, or a name to find in the sample folders" },
+      clip: { type: "object", description: "Or an audio clip in Live: {track, bar, name} or {track, slot}" } }),
+    run: async (a) => {
+      if ((a.file === undefined) === (a.clip === undefined)) throw new Error("Give file or clip (one of them).");
+      const file = a.file !== undefined ? (path.isAbsolute(String(a.file)) && fs.existsSync(String(a.file)) ? String(a.file) : findAudioFile(String(a.file)))
+        : (await bridge("audio_clip_info", { clip: a.clip }) as { file: string }).file;
+      if (!file) throw new Error("Live gave no file for that clip.");
+      return analyzeSong(file);
+    } },
   { name: "live_audio_clip_info", description: "What Live reports about an audio clip (read-only): its file, warp state, and the raw warp markers, start and end markers and position. For checking a clip before live_align_audio, and for reporting a wrong reading.",
     inputSchema: obj({ clip: { type: "object", description: "{track, bar, name} for an Arrangement clip or {track, slot} for a Session clip" } }, ["clip"]),
     run: (a) => bridge("audio_clip_info", { clip: a.clip }) },
@@ -856,6 +868,13 @@ const tools: Tool[] = [
       return { mcpContent: [{ type: "text", text: `Captured ${shots.length} Live window${shots.length > 1 ? "s" : ""}:\n${note}` },
         ...shots.map((s) => ({ type: "image", data: s.data, mimeType: "image/png" }))] };
     } },
+
+  // --- Live's menu bar, without the screen (menu.ts) ---
+  { name: "live_menu", description: "Fire one of Live's menu commands by name, e.g. \"View > Browser\" or \"Create > Separate Stems to New Audio Tracks\", with no screen control: Live can stay in the background, and the mouse, keys and clipboard aren't touched. Use only when the user asks for that command, and tell them what was fired. Only an allow-list fires: commands that open a dialog (nothing changes until the user confirms it there; press nothing in it yourself), change only the view, or (through live_save) save. New, Open, Close Window and Quit are always refused. An unknown path is refused with the close matches. On Windows, Live doesn't mark which commands are greyed out, so one that needs a selected clip or track is sent anyway and Live may just ignore it: check with live_screenshot. Windows; the Mac route is written but not yet tested.",
+    inputSchema: obj({ path: { type: "string", description: "Menu path with > between levels, as Live shows it, e.g. \"View > Browser\"" } }, ["path"]),
+    run: (a) => liveMenu(String(a.path ?? "")) },
+  { name: "live_save", description: "Save the open set (File > Save Live Set), then check it landed: Live's title loses its *, the .als file's time changes, and Live shows no message box. Only for a set that already has a file; a new Untitled set needs Save As, which this refuses. Use when the user asks to save, and say it was saved. If it fails, it says so: ask the user to press Ctrl+S (Cmd+S on the Mac), or offer computer use.",
+    inputSchema: obj({}), run: () => liveSave() },
 
   // --- theory: computed locally, no Live needed ---
   { name: "theory_key", description: `Everything about a key: its notes, the chords that fit (with roman numerals), common progressions, and which of a 25-key keyboard's keys are in it. Scales: ${SCALE_IDS.join(", ")}.`,

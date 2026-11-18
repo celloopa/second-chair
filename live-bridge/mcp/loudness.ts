@@ -1,7 +1,7 @@
 // Measures an audio file the way a mastering meter does, so Claude has numbers where it has no ears:
 // loudness (LUFS, ITU-R BS.1770-4 / EBU R 128), true peak, loudness range, crest factor, tone balance by band,
 // and stereo width. No dependencies. WAV only (see onsets.ts).
-import { readWav } from "./onsets.ts";
+import { readWav, type Audio } from "./onsets.ts";
 
 export type Analysis = {
   file: string; seconds: number; sample_rate: number; channels: number;
@@ -76,7 +76,8 @@ function truePeak(channels: Float32Array[], samplePeak: number): number {
   return peak;
 }
 
-function fft(re: Float64Array, im: Float64Array) {
+/** In-place radix-2 FFT (length a power of 2). Shared with songanalysis.ts. */
+export function fft(re: Float64Array, im: Float64Array) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
     let bit = n >> 1;
@@ -121,8 +122,7 @@ function bands(chans: Float32Array[], rate: number): Record<string, number> {
   return Object.fromEntries(BANDS.map((b, i) => [b[0], total > 0 ? r1(db(energy[i] / total)) : -200]));
 }
 
-export function analyze(file: string): Analysis {
-  const a = readWav(file);
+export function analyze(file: string, a: Audio = readWav(file)): Analysis {
   const chans = a.channels.slice(0, 2); // loudness of the front pair; mono counts once
   const weighted = chans.map((c) => kWeight(c, a.rate));
 

@@ -6,7 +6,7 @@ Second Chair puts your AI agent inside your Live set. You ask in plain words. It
 
 In an orchestra, the second chair sits beside the lead player and backs them up. You lead.
 
-**Private beta, version 0.10.2. Please don't share it yet.**
+**Private beta, version 0.11.0. Please don't share it yet.**
 
 ## What you can ask
 
@@ -62,7 +62,7 @@ Two parts, and one installer for both:
 | Part | What it is | Where it runs |
 |---|---|---|
 | **SecondChair**, the script | A small script that Live loads as a "Control Surface". It carries out a fixed list of actions. | Inside Live |
-| **second-chair**, the tools | 65 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
+| **second-chair**, the tools | 68 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
 
 Your **studio profile** is one file, `SecondChair/my-studio.md` in your home folder. It holds your name, your gear, your plugins and how you like to be taught, so the agent knows your setup in every session. You can read and edit it yourself.
 
@@ -91,7 +91,7 @@ These are built into the tools and the guide:
 | Read this | For |
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Your agent: the whole setup, from survey to your studio profile |
-| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.10.2, by job, with things to say |
+| [docs/what-you-can-do.md](docs/what-you-can-do.md) | Everything you can ask for up to 0.11.0, by job, with things to say |
 | [docs/needs-your-hands.md](docs/needs-your-hands.md) | What the tools can't do: what you do by hand, and what Claude can do with computer use switched on |
 | [docs/whats-next.md](docs/whats-next.md) | What's unproven, what could be patched in, and what's planned |
 | [live-bridge/README.md](live-bridge/README.md) | The technical notes: every tool and how it works inside |

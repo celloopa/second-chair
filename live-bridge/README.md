@@ -81,6 +81,11 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
   - It captures only Live's own windows, never the rest of the screen. It works when other windows cover Live, but not when Live is minimised (or, on the Mac, hidden or on another desktop).
   - It runs in the MCP server, because Live's Python can't take screenshots: `mcp/screenshot.ts` with `screenshot.ps1` on Windows, and with `screenshot-mac.js` plus `screencapture -l <window id>` on the Mac.
   - On the Mac it needs Screen Recording permission for the app that runs second-chair (Claude, HeyClicky or Terminal), in System Settings > Privacy & Security > Screen Recording. Without it, the tool says so.
+- **Live's menu bar, without the screen** (Live's Python has no save, export or stems calls):
+  - `live_menu`: fires one menu command by name, such as `View > Browser`. On Windows it posts the command to Live's window (`mcp/menu.ts` with `menu.ps1`), so Live can stay in the background and the mouse, keys and clipboard aren't touched. It works only on an allow-list: commands that open a dialog, change only the view, or save. New, Open, Close Window and Quit are always refused. An unknown name is refused with the close matches.
+  - Live 12.4 on Windows never marks its menu items greyed out or ticked, so a command that needs a selection is sent anyway. After a dialog command, the tool reports which window opened.
+  - `live_save`: saves a set that already has a file, then checks that the `*` left the title, the `.als` changed and no message box appeared in Live's `Log.txt`. If Live answers with Save As (a copy of a template opened from disk), it says so. If anything fails, it asks the user to press Ctrl+S; computer use stays the fallback.
+  - On the Mac, `menu-mac.js` clicks the menu through System Events (needs Accessibility). It is written but not yet tested.
 - **Studio guide** (works without Live):
   - `studio_guide` returns the second-chair skill (`.claude/skills/second-chair/SKILL.md` at the repo root): how to work with the user, which tool fits which request, the safety rules, the studio facts and fixes. `section` narrows it.
   - Claude Code sessions in this repo load the same file as a skill. HeyClicky can't load skills, so it reads the guide through this tool. Edit the skill file; there's no second copy.
@@ -221,6 +226,27 @@ For mastering, where Claude has no ears (the beta's first use, 2026-11-12). MCP 
 - WAV only (16/24/32-bit PCM, 32-bit float). No MP3 or AIFF yet.
 - **Version check:** `live_status` now warns only when Live's Remote Script is older than `NEEDS_BRIDGE` (0.9.6), so server-only releases like this one don't ask for a Live restart.
 - **Playbook:** `playbooks/mastering.md` (the export-measure-listen loop, what each number means, the chain on Main, Ozone).
+
+## Song analysis: key, tempo and more (song_analyze, not yet released)
+
+What the music is doing, from a full mix. A port of the one-off scripts `key_tempo.py` and `fold.py` (Cello Brain, `inbox/music-studio/song-analysis-scripts`), from the song chat of 2026-11-18. MCP server only.
+
+- **`song_analyze`** `{file | clip}` (`mcp/songanalysis.ts`). Read-only. WAV only, like `audio_analyze`. Everything is measured in mono at 22.05 kHz (a windowed-sinc resampler).
+  - **Key:** spectral peaks per frame (55 Hz to 2.5 kHz), the tuning offset, a 12-note chroma, then correlation with three key profiles (Krumhansl-Kessler, Temperley, Albrecht-Shanahan). It reports the best key, the runner-up, the relative key (always), the scale's notes, the key per section, and the top five. F♯ major and D♯ minor are named with sharps, with the flat name beside them.
+  - **Key confidence:** high only when all three profiles agree, every section agrees, the winner leads the runner-up by 0.05 and the relative key by 0.10. Within 0.10 of the relative key it says "the relative key is close: listen for home". Low when one profile or fewer agrees, under half the sections agree, or the lead is under 0.02.
+  - **Tuning:** cents from A440, with how much the peaks agree on it.
+  - **Tempo:** spectral-flux onsets in log bands, a Fourier tempogram and an autocorrelation, a dynamic-programming beat tracker (Ellis 2007), and a straight-line fit through the beats. It picks the pulse both methods back (the strongest periodicity alone was a syncopated hat at 175 in a 140 song). Then it leads with the reading nearest 110 BPM, a convention; the half and the double sit beside it.
+  - **Repeats:** a short pattern (the loop length, 1 to 12 s, that makes the hits line up best, as `fold.py`, preferring 1, 2, 4, 8, 16 or 32 beats), and a chord cycle and a bass cycle (after how many bars the notes come round again, from bar-by-bar chroma).
+  - **Drums:** the mix is split into hits and held notes by median filtering (Fitzgerald 2010). If the low hits (30–150 Hz) make less than −18 dB of the mix, it says "no clear drums" and draws no map. Otherwise it draws one bar of kick, snare and hats in 16 steps, placed by the tracked beats, from a downbeat guess (where the chords change most, with the kick as a tie-break).
+  - **Bass note per bar, rough:** the strongest pitch class from peaks at 32–120 Hz. The upper limit is kept low because the song chat's 200 Hz limit caught the voice.
+  - **Loudness and tone:** `analyze()` from `loudness.ts`, on the same audio. The FFT is shared from there.
+- **Each reading** has a confidence and a check-by-ear step. The description follows the mentor rule: report, offer options, and the user decides by ear.
+- **Checked** (`test/song_analyze.ts`, 16 checks):
+  - The made-up loop (G minor, 92 BPM, Gm–E♭–Cm–D) comes back as G minor at 92.00 BPM, chord and bass cycle 16 beats, bass notes G, E♭, C and D, with a drum map. Without its drums: still G minor, and "no clear drums".
+  - A 2-minute R&B song with no drums read the same as the Python scripts: F♯ major with D♯ minor close behind (medium: listen for home), 123.99 BPM, +1 cent, chord cycle 32 beats, no clear drums. Its hook bass came out B–G♯–D♯–C♯, the same as its bass stem. About 5 s.
+  - The drum line (−18 dB) rests on seven files: three mixes with drums (−11 to −16 dB) and four without (−20 to −43 dB). Treat it as a first guess.
+  - A 140 BPM trap beat (felt as 70) reads 139.35, half 69.7. A 4:52 house track takes about 12 s.
+- **Not yet:** stems (step 2 of the plan), MP3, chords, vocal range.
 
 ## Return tracks and Main in real Live (bridge 0.9.6)
 
@@ -444,6 +470,7 @@ Shared with the Mac port. Asked for by the user on 2026-11-10 while building a b
 ```
 python test\fake_live.py 120   # in one terminal
 node test\mcp_client.ts       # in another, within 15 s (stops if it finds real Live, since it writes to the set)
+node test\song_analyze.ts     # song_analyze on a made-up loop; needs no Live and no fake
 ```
 
 - **While Live is open,** it holds port 9885. Set `SECOND_CHAIR_PORT=19885` in both terminals to run the fake on a spare port.
