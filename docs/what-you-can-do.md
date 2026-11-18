@@ -259,6 +259,14 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 - "Import this file": after Create > Import Audio/MIDI File, `live_file_dialog` fills the Open box too. (`live_import_audio` is usually simpler.)
 - It works even when Live sits on another desktop or workspace. It only fills Windows' own file boxes, never Live's own windows, so Live's Export settings and its Export button stay yours (or computer use).
 - Windows only for now. On the Mac it tells you what to type.
+
+### Export without the screen (0.15.0)
+
+- "What will the export be?": `live_export` opens Live's Export window, reads it (track, start and length, file type, sample rate, bit depth, Normalize and the other options) and closes it again.
+- "Export it to my Bounces folder as Song.wav": `live_export` with the path opens the window, presses Export and fills Windows' save box, then waits for the file. It takes a few seconds for a short export; longer songs take longer.
+- It never changes anything in Live's Export window. Set the length and options there yourself (or ask it to leave the window open while you do), then say "export".
+- It stops if the file type doesn't match the path, if the length is 0, or if the file is already there (unless you said to replace it).
+- Afterwards it offers `audio_analyze` on the file. Windows only for now.
 - Each of these is taken back with "take that back" (`live_revert`). They need the Live script 0.11.0: after an update, quit and reopen Live once.
 
 | Say | What happens |
@@ -287,7 +295,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 
 ## 15. Every tool, in one list
 
-75 tools. "Reads" change nothing.
+76 tools. "Reads" change nothing.
 
 | Group | Tools |
 |---|---|
@@ -300,7 +308,7 @@ Say **"demo mode"** to show a friend what's possible. Claude asks where to work 
 | Sounds and samples | `live_load_sound`, `live_audition`, `live_build_drum_kit`, `live_swap_pad_sample`, `live_load_sample`, `live_set_simpler` |
 | MIDI | `live_write_clip`, `live_delete_clip`, `live_add_notes`, `live_copy_clip` |
 | Theory | `theory_key`, `theory_name_chord`, `theory_voice_chord` |
-| Saving and Live's menus | `live_save`, `live_menu`, `live_file_dialog`, `live_select_clip`, `live_separate_stems` |
+| Saving and Live's menus | `live_save`, `live_menu`, `live_export`, `live_file_dialog`, `live_select_clip`, `live_separate_stems` |
 | Checking the bridge | `live_probe` |
 | Undo | `live_revert`, `live_undo` |
 | You and the guide | `my_studio`, `my_plugins`, `studio_guide` |

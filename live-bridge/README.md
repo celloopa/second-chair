@@ -323,6 +323,19 @@ Windows' own Save and Open boxes ("file pickers") that Live opens: File > Save L
   - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** File > Save a Copy by name, then `live_file_dialog` read the hidden picker (folder, suggested name "ZZ Scratch Copy", file type "Ableton Live Set (*.als)") and saved exactly at the path given. Over that file again: the tool refused first; the script alone met Windows' Replace box and answered No (file untouched); `replace: true` replaced it. Cancel closed the picker. The open set stayed ZZ Scratch with nothing unsaved.
   - **Not checked in real Live:** `live_save {path}` on an Untitled set (`live_menu` won't open a new set), the Export save picker after a real render, and an Import through the Open picker.
 
+## Export without the screen (live_export, 0.15.0)
+
+Windows. Server only (`mcp/export.ts`, `mcp/livewindow.ps1`, plus `filedialog.ts` for the save box): no Remote Script change, so no Live restart.
+
+- **`livewindow.ps1`** reads one of Live's own windows by exact title, and presses one button by exact name if the caller allows it. It finds the window by its Win32 title among Live's processes (works on a hidden GlazeWM workspace) and reads it by handle through UI Automation: types, names, values (ValuePattern, else RangeValue), toggles, enabled. It never writes a value: SetValue on Live's sliders crashed Live (community-reported).
+- **Read** (`{}`): `File > Export Audio/Video` by name; wait for the window; turn its controls into settings: rendered track, start and length as bars.beats.sixteenths (from the six sliders), file type, sample rate, bit depth, dither, the On/Off options, and whether Export is enabled. If this call opened the window it presses Cancel again (`keep_open` leaves it).
+- **Export** (`{path, replace}`): checks the path (`checkPath`), refuses an existing file unless `replace`, opens or reuses the window, checks the path's type against File Type (and Encode PCM/MP3), refuses a length of 0, presses Export (allow-list: Export, Cancel), waits for Live's save picker ("Save Audio File As:" in 12.4.16) and fills it with `fillPicker`, waiting up to 30 s for the file.
+- **Cancel:** Cancel in the Export window, or in the save picker.
+- **Tests:**
+  - `mcp_client.ts` drives it with a stand-in window (`SECOND_CHAIR_LIVE_WINDOW`), menu and picker: read and close, the wrong type (only Cancel pressed), an existing file (nothing pressed), length 0, an unreadable window, a full export, keep_open and cancel.
+  - `test/livewindow_uia.ps1` runs `livewindow.ps1` on a WPF stand-in with Live's control names (`test/export_window.ps1`): read with values, a button not on the list refused, Cancel, and on a cloaked window Export, then the real Windows save picker filled by `filedialog.ps1`, then the file.
+  - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** read gave Main, 1.1.1, length 0.0.1, WAV, 48000, 24, Triangular and all eight options, and closed the window. Export to a test path: Export pressed, "Save Audio File As:" filled, a 35 KB WAV (0.1 s, stereo, 48 kHz) in about 12 s. Again without replace: refused; with replace: replaced. keep_open then cancel: closed. The set stayed unsaved-free. Not checked: a long render, MP3, a set on a hidden workspace.
+
 ## Return tracks and Main in real Live (bridge 0.9.6)
 
 - **The 0.9.5 bug:** `live_status` failed in real Live with "RuntimeError: Main and Return Tracks have no Clips". On return tracks and Main, Live raises RuntimeError for clip properties (`clip_slots`, `playing_slot_index`). `getattr(t, ..., default)` only catches AttributeError, so it didn't help.

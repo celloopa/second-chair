@@ -12,7 +12,8 @@ const STUDIO_FILE = path.join(os.tmpdir(), `second-chair-studio-test-${process.p
 const MENU_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "second-chair-menu-test-"));
 Object.assign(process.env, { SECOND_CHAIR_LIVE_MENU: path.join(MENU_DIR, "menu.json"), SECOND_CHAIR_LIVE_LOG: path.join(MENU_DIR, "Log.txt"),
   SECOND_CHAIR_PROJECT_DIRS: MENU_DIR, SECOND_CHAIR_SAVE_WAIT_MS: "1500", SECOND_CHAIR_STEMS_UIA: path.join(MENU_DIR, "stems-window.json"),
-  SECOND_CHAIR_FILE_DIALOG: path.join(MENU_DIR, "picker.json"), SECOND_CHAIR_FILE_WAIT_MS: "800", SECOND_CHAIR_FILE_OPEN_MS: "1500" });
+  SECOND_CHAIR_FILE_DIALOG: path.join(MENU_DIR, "picker.json"), SECOND_CHAIR_FILE_WAIT_MS: "800", SECOND_CHAIR_FILE_OPEN_MS: "1500",
+  SECOND_CHAIR_LIVE_WINDOW: path.join(MENU_DIR, "export-window.json"), SECOND_CHAIR_EXPORT_OPEN_MS: "1500", SECOND_CHAIR_EXPORT_PICKER_MS: "1500", SECOND_CHAIR_EXPORT_WAIT_MS: "800" });
 const server = spawn(process.execPath, [path.join(import.meta.dirname, "..", "mcp", "server.ts")], { stdio: ["pipe", "pipe", "inherit"],
   // Saved pad swaps go to a fresh temp folder, never the user's real ~/SecondChair/pad-swaps.jsonl.
   env: { ...process.env, SECOND_CHAIR_STUDIO_FILE: STUDIO_FILE, SECOND_CHAIR_PLUGINS_FILE: STUDIO_FILE.replace(/\.md$/, "-plugins.md"), SECOND_CHAIR_SAMPLE_DIRS: os.tmpdir(), SECOND_CHAIR_LIVE_TITLE: "my-song* - Ableton Live 12 Suite", SECOND_CHAIR_ABLETON_LIBRARIES: path.join(import.meta.dirname, "fixtures"),
@@ -836,6 +837,48 @@ await expect("refused", "live_save", {}, "Save didn't go through");
   const sa = js(await expect("ok", "live_save", { path: at("New Song.als") }, "\"fired\": \"File > Save Live Set As\""));
   if (sa.file !== at("New Song.als") || !sa.done) { failed++; console.log("!! live_save with path should save through the picker: " + JSON.stringify(sa)); }
   await fakeAsk("fake_set_path", {});
+}
+// Export without the screen (live_export, 0.15.0): a stand-in menu, Export window and save picker. Real Live is never
+// touched here (the Windows part has its own check: test/livewindow_uia.ps1).
+{
+  const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, WIN = process.env.SECOND_CHAIR_LIVE_WINDOW!, PICK = process.env.SECOND_CHAIR_FILE_DIALOG!;
+  const dir = path.join(MENU_DIR, "Bounces"); fs.mkdirSync(dir, { recursive: true });
+  const at = (f: string) => path.join(dir, f);
+  fs.writeFileSync(MENU, JSON.stringify({ title: "my-song - Ableton Live 12 Suite", version: "12.4.16", windows: [],
+    menus: [{ name: "File", items: [item("Export Audio/Video...", 2088)] }], opens: { "File > Export Audio/Video...": "Export Audio/Video" } }));
+  const ctl = (type: string, name: string, value?: string, enabled = true) => ({ type, name, enabled, ...(value !== undefined ? { value } : {}) });
+  const exportWindow = (len = ["8", "0", "0"], extra: Record<string, unknown> = {}) => fs.writeFileSync(WIN, JSON.stringify({ pressed: [], picker_title: "Save Export:", controls: [
+    ctl("ComboBox", "Rendered Track Chooser", "Main"),
+    ctl("Slider", "Start of Rendered Audio File (Bar)", "1"), ctl("Slider", "Start of Rendered Audio File (Beat)", "1"), ctl("Slider", "Start of Rendered Audio File (Sixteenths)", "1"),
+    ctl("Slider", "Length of Rendered Audio File (Bar)", len[0]), ctl("Slider", "Length of Rendered Audio File (Beat)", len[1]), ctl("Slider", "Length of Rendered Audio File (Sixteenths)", len[2]),
+    ctl("ComboBox", "Sample Rate", "48000"), ctl("ComboBox", "File Type", "WAV"), ctl("ComboBox", "Recording Bit Depth", "24"),
+    ctl("Button", "Normalize", "Off"), ctl("Button", "Encode PCM", "On"), ctl("Button", "Encode MP3", "Off"),
+    ctl("Button", "Export"), ctl("Button", "Cancel")], ...extra }));
+  const pressedWin = () => JSON.parse(fs.readFileSync(WIN, "utf8")).pressed as string[];
+  fs.writeFileSync(PICK, JSON.stringify({ kind: "save", title: "Save Export:", folder: dir, file_type: "WAV (*.wav)", pressed: [] }));
+  exportWindow();
+  const r = js(await expect("ok", "live_export", {}, "\"length\": \"8.0.0\""));
+  if (r.closed_again !== true || pressedWin().join() !== "Cancel" || r.settings?.file_type !== "WAV" || r.settings?.options?.Normalize !== false) { failed++; console.log("!! read should report the settings and close the window it opened: " + JSON.stringify(r) + " " + pressedWin()); }
+  exportWindow();
+  await expect("refused", "live_export", { path: at("mix.mp3") }, "writes .wav");
+  if (pressedWin().join() !== "Cancel") { failed++; console.log("!! a wrong file type should press only Cancel: " + pressedWin()); }
+  fs.writeFileSync(at("old.wav"), "old");
+  exportWindow();
+  await expect("refused", "live_export", { path: at("old.wav") }, "already exists");
+  if (pressedWin().length) { failed++; console.log("!! an existing file should be refused before anything is pressed: " + pressedWin()); }
+  exportWindow(["0", "0", "0"]);
+  await expect("refused", "live_export", { path: at("mix.wav") }, "render length is 0");
+  exportWindow([], { unreadable: true });
+  fs.writeFileSync(MENU, JSON.stringify({ ...JSON.parse(fs.readFileSync(MENU, "utf8")), windows: ["Export Audio/Video"] }));
+  await expect("refused", "live_export", { path: at("mix.wav") }, "doesn't show what's inside it");
+  fs.writeFileSync(MENU, JSON.stringify({ ...JSON.parse(fs.readFileSync(MENU, "utf8")), windows: [] }));
+  exportWindow();
+  const ex = js(await expect("ok", "live_export", { path: at("mix.wav") }, "\"pressed\": \"Export\""));
+  if (pressedWin().join() !== "Export" || !fs.existsSync(at("mix.wav")) || ex.save?.file !== at("mix.wav") || !/audio_analyze/.test(ex.next ?? "")) { failed++; console.log("!! export should press Export, fill the picker and find the file: " + JSON.stringify(ex) + " " + pressedWin()); }
+  exportWindow();
+  await expect("ok", "live_export", { keep_open: true }, "The window is open in Live");
+  await expect("ok", "live_export", { action: "cancel" }, "\"pressed\": \"Cancel\"");
+  await expect("ok", "live_export", { action: "cancel" }, "Nothing to cancel");
 }
 fs.rmSync(MENU_DIR, { recursive: true, force: true });
 

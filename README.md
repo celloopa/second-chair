@@ -62,7 +62,7 @@ Two parts, and one installer for both:
 | Part | What it is | Where it runs |
 |---|---|---|
 | **SecondChair**, the script | A small script that Live loads as a "Control Surface". It carries out a fixed list of actions. | Inside Live |
-| **second-chair**, the tools | 75 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
+| **second-chair**, the tools | 76 tools your agent can call, plus a guide (a "skill") that teaches it how to help a producer. | Next to your agent, on your computer |
 
 Your **studio profile** is one file, `SecondChair/my-studio.md` in your home folder. It holds your name, your gear, your plugins and how you like to be taught, so the agent knows your setup in every session. You can read and edit it yourself.
 

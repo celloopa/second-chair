@@ -197,6 +197,13 @@ export async function fillPicker(a: FillArgs, opts: { waitMs?: number } = {}) {
   return out;
 }
 
+/** Wait up to ms for a Live file picker to be open (for example after Live's Export button). */
+export async function waitForPicker(ms: number): Promise<boolean> {
+  const until = Date.now() + ms;
+  do { const r = await picker("read"); if (r.open) return true; await new Promise((res) => setTimeout(res, 300)); } while (Date.now() < until);
+  return false;
+}
+
 export async function cancelPicker() {
   guard();
   const r = await picker("read");

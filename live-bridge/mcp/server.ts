@@ -17,6 +17,7 @@ import { logMessageBoxes } from "./dialogs.ts";
 import { liveMenu, liveSave } from "./menu.ts";
 import { startStems, checkStems, cancelStems, stemJobSummary } from "./separate.ts";
 import { readPicker, fillPicker, cancelPicker, checkFile, saveSetAs } from "./filedialog.ts";
+import { readExport, exportAudio, cancelExport } from "./export.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
@@ -26,7 +27,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.14.1";
+const VERSION = "0.15.0";
 const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -1068,6 +1069,17 @@ const tools: Tool[] = [
   { name: "live_save", description: "Save the open set (File > Save Live Set), then check it landed: Live's title loses its *, the .als file's time changes, and Live shows no message box. A new Untitled set has no file yet: give path (a full .als path the user chose, e.g. in their Music\Ableton\Projects folder) and it runs File > Save Live Set As and fills Windows' file picker (Live may put the set in a new \"<name> Project\" folder). path also saves an already-saved set under a new name; it never replaces an existing file. Use when the user asks to save, and say it was saved. If it fails, it says so: ask the user to press Ctrl+S (Cmd+S on the Mac), or offer computer use.",
     inputSchema: obj({ path: { type: "string", description: "Save As: the full path of a new .als file (Windows). Leave out for a plain save." } }),
     run: (a) => a.path ? saveSetAs(bridge, a.path) : liveSave() },
+  { name: "live_export", description: "Export audio from Live without taking over the screen (Windows): opens File > Export Audio/Video by name, reads Live's Export window, presses its Export button and fills Windows' save box with the full path, then waits for the file. Only when the user asks to export or bounce to a file, with the path settled (say it back). action read (the default without path): opens the window, reports its settings (rendered track, start and length in bars.beats.sixteenths, file type, sample rate, bit depth, the On/Off options) and closes it again (keep_open: true leaves it open so the user can change things in Live). With path (action export): exports with the settings as they are in Live: it never changes the length, track or options (the user does, in Live). It refuses a path whose type doesn't match Live's File Type, a render length of 0, and an existing file unless replace: true (only when the user said so). Rendering can take a while: if the file isn't there yet, check with live_file_dialog {action: \"check\", path}. Then offer audio_analyze on the file. action cancel presses Cancel in the Export window or the save box. It presses only Export and Cancel in Live's window. Mac: refuses, with the by-hand steps.",
+    inputSchema: obj({ action: { type: "string", enum: ["read", "export", "cancel"], description: "read (default without path), export (default with path), cancel" },
+      path: { type: "string", description: "export: the full path of the audio file, e.g. C:\\Users\\<you>\\Music\\Bounces\\Song.wav" },
+      replace: { type: "boolean", description: "export: replace an existing file (only when the user said so; default false)" },
+      keep_open: { type: "boolean", description: "read: leave the Export window open in Live (default false)" } }),
+    run: async (a) => {
+      const action = a.action ?? (a.path ? "export" : "read");
+      if (action === "export") return exportAudio(bridge, { path: a.path, replace: a.replace === true });
+      if (action === "cancel") return cancelExport();
+      return readExport(bridge, { keep_open: a.keep_open === true });
+    } },
   { name: "live_file_dialog", description: "Fill one of Live's file pickers without the screen (Windows): the Save picker after File > Save Live Set As, Save a Copy, or Export Audio/Video (after its Export button), and the Open picker after Create > Import Audio/MIDI File. These are Windows' own file dialogs; this puts a full path in File name and presses Save or Open with window messages: no mouse, keys or clipboard, and Live stays in the background. Only when the user asked for that save, export or import and the file name or folder is settled (say the path back to them). action read (the default): is a picker open, its title, kind (save or open), folder and file type. action fill with path (a full path): Save pickers refuse a file that already exists unless replace: true (only when the user said to replace it); if Windows still asks to replace, it answers No and says so. It refuses a missing folder, a system folder, a wrong file type, or an Open of a missing file. After a Save it waits for the file: an Export renders first, so its file may come later (action check with the path). action cancel presses the picker's Cancel. action check with path: does the file exist, its size and time. It never touches Live's own drawn windows (Live's Export settings window, for example: the user or computer use presses Export there). For a new set, live_save with path does Save As in one call. Mac: refuses, with the by-hand steps.",
     inputSchema: obj({ action: { type: "string", enum: ["read", "fill", "cancel", "check"], description: "read (default), fill, cancel or check" },
       path: { type: "string", description: "fill and check: the full path, e.g. C:\Users\<you>\Music\Ableton\Projects\Song Project\Song.als" },
