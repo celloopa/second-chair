@@ -11,6 +11,8 @@
 # "Vocals, Include or exclude the Vocals stem." (and Drums, Bass, Others), an unnamed CheckBox, CheckBox "Merge Stems"
 # (greyed out for a short clip), CheckBox "Quality Mode, Choose between High Speed or High Quality." (On = High
 # Quality), and Buttons Separate and Cancel. A box is matched by its name, or its name before ", " and a description.
+# The window is found by Win32 title first, so it works while GlazeWM has Live on a hidden workspace (UI Automation's
+# desktop tree leaves cloaked windows out; reading by handle still works).
 # Run it by hand to look:  powershell -ExecutionPolicy Bypass -File separate.ps1 -Action read
 # Prints one JSON object; on trouble {"error": "...", "message": "..."}.
 param(
@@ -45,6 +47,31 @@ public static class StemPress {
 }
 '@
 }
+# Win32 lists Live's windows even when a window manager has cloaked them (GlazeWM hides other workspaces that way);
+# UI Automation's desktop tree leaves cloaked windows out, but reading one by its handle still works (checked with a
+# cloaked stand-in, 2026-11-18).
+Add-Type @'
+using System;
+using System.Text;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+public static class StemWin {
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int a, out int v, int s);
+  public static IntPtr[] Named(int[] pids, string title) {
+    var want = new HashSet<uint>(); foreach (var p in pids) want.Add((uint)p);
+    var o = new List<IntPtr>();
+    EnumWindows((h, l) => { uint pid; GetWindowThreadProcessId(h, out pid);
+      if (want.Contains(pid)) { var s = new StringBuilder(128); GetWindowText(h, s, 128); if (s.ToString() == title) o.Add(h); }
+      return true; }, IntPtr.Zero);
+    return o.ToArray();
+  }
+  public static bool Cloaked(IntPtr h) { int v; return DwmGetWindowAttribute(h, 14, out v, 4) == 0 && v != 0; }
+}
+'@
 $A = [System.Windows.Automation.AutomationElement]
 $TS = [System.Windows.Automation.TreeScope]
 $CT = [System.Windows.Automation.ControlType]
@@ -65,19 +92,34 @@ function Test-StemWindow($el) {
     return ($names -contains 'Separate') -and ($names -contains 'Cancel')
   } catch { return $false }
 }
-# Find the window: first among the desktop's top-level windows, then inside Live's own top-level windows.
+# Find the window: Live's top-level windows by Win32 (cloaked or not), read by handle; then the desktop's UI Automation
+# children; then inside Live's own top-level windows.
 function Find-StemWindows {
   $root = $A::RootElement
-  $byName = New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, $TITLE)
-  $hits = @($root.FindAll($TS::Children, $byName))
-  if (-not $hits.Count) {
-    foreach ($p in $livePids) {
-      $byPid = New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p)
-      foreach ($w in @($root.FindAll($TS::Children, $byPid))) { $hits += @($w.FindAll($TS::Descendants, $byName)) }
+  $hits = @()
+  foreach ($h in [StemWin]::Named([int[]]$livePids, $TITLE)) { try { $hits += $A::FromHandle($h) } catch { } }
+  if (-not @($hits | Where-Object { Test-StemWindow $_ }).Count) {
+    $byName = New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, $TITLE)
+    $hits += @($root.FindAll($TS::Children, $byName))
+    if (-not @($hits | Where-Object { Test-StemWindow $_ }).Count) {
+      foreach ($p in $livePids) {
+        $byPid = New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p)
+        foreach ($w in @($root.FindAll($TS::Children, $byPid))) { $hits += @($w.FindAll($TS::Descendants, $byName)) }
+      }
     }
   }
-  return @($hits | Where-Object { Test-StemWindow $_ })
+  $seen = @{}
+  return @($hits | Where-Object { Test-StemWindow $_ } | Where-Object { $k = ($_.GetRuntimeId() -join '.'); if ($seen.ContainsKey($k)) { $false } else { $seen[$k] = $true; $true } })
 }
+# A Separate Stems window Win32 sees but UI Automation can't read inside (no Separate and Cancel found).
+function Get-HiddenStemWindow {
+  foreach ($h in [StemWin]::Named([int[]]$livePids, $TITLE)) {
+    $el = $null; try { $el = $A::FromHandle($h) } catch { }
+    if (-not $el -or -not (Test-StemWindow $el)) { return @{ cloaked = [StemWin]::Cloaked($h) } }
+  }
+  return $null
+}
+function Test-Cloaked($el) { try { return [StemWin]::Cloaked([IntPtr]$el.Current.NativeWindowHandle) } catch { return $false } }
 # Live's other top-level windows (names only), to spot a progress window if Live shows one.
 function Get-LiveWindowNames {
   $out = @()
@@ -116,7 +158,11 @@ function Read-Boxes($win) {
 }
 function Find-One {
   $wins = @(Find-StemWindows)
-  if (-not $wins.Count) { Out-Json @{ error = 'no-window'; message = "Live's Separate Stems window isn't open."; live_windows = @(Get-LiveWindowNames) } }
+  if (-not $wins.Count) {
+    $hid = Get-HiddenStemWindow
+    if ($hid) { Out-Json @{ error = 'hidden'; cloaked = $hid.cloaked; message = "Live's Separate Stems window is open, but Windows doesn't show what's inside it$(if ($hid.cloaked) { ' (it is hidden: Live may be on another desktop or workspace)' }). Nothing was pressed." } }
+    Out-Json @{ error = 'no-window'; message = "Live's Separate Stems window isn't open."; live_windows = @(Get-LiveWindowNames) }
+  }
   if ($wins.Count -gt 1) { Out-Json @{ error = 'several'; message = "More than one Separate Stems window is open; nothing was pressed." } }
   $w = $wins[0]
   $owner = $w.Current.ProcessId
@@ -137,10 +183,14 @@ function Press($win, $name) {
 
 if ($Action -eq 'read') {
   $wins = @(Find-StemWindows)
-  if (-not $wins.Count) { Out-Json @{ open = $false; live_windows = @(Get-LiveWindowNames) } }
+  if (-not $wins.Count) {
+    $hid = Get-HiddenStemWindow
+    if ($hid) { Out-Json @{ open = $true; unreadable = $true; cloaked = $hid.cloaked; live_windows = @(Get-LiveWindowNames) } }
+    Out-Json @{ open = $false; live_windows = @(Get-LiveWindowNames) }
+  }
   $w = $wins[0]
   $boxes, $missing, $null = Read-Boxes $w
-  Out-Json @{ open = $true; count = $wins.Count; live_owned = ($livePids -contains $w.Current.ProcessId); boxes = $boxes; missing = $missing; elements = @(Describe $w); live_windows = @(Get-LiveWindowNames) }
+  Out-Json @{ open = $true; count = $wins.Count; live_owned = ($livePids -contains $w.Current.ProcessId); cloaked = (Test-Cloaked $w); boxes = $boxes; missing = $missing; elements = @(Describe $w); live_windows = @(Get-LiveWindowNames) }
 }
 
 $w = Find-One

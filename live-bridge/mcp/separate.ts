@@ -7,7 +7,8 @@
 //   5. presses Separate with UI Automation Invoke, and returns at once.
 // Progress (action "check") comes from the stem files appearing in <project>\Samples\Processed\Stems and the new group
 // track in the set: Live's log says nothing about stems (seen 2026-11-18). Cancel presses Cancel in that one window.
-// separate.ps1 only ever presses Separate or Cancel, and only in a window named "Separate Stems" owned by Live.
+// separate.ps1 only ever presses Separate or Cancel, and only in a window named "Separate Stems" owned by Live. It finds
+// the window by Win32 title first, so a window GlazeWM has cloaked on another workspace is still found (0.14.1).
 // The Mac route isn't built: it refuses there with the by-hand steps. What a Mac route could use (from the Mac lead's
 // hand test, Live 12.4.16): Live's dialogs are AX-readable with stable AXIdentifiers (Export has
 // Base.FinalButtonsBox.ExportButton and CancelButton), and AXPress works with Live in the background; menu items'
@@ -47,7 +48,7 @@ function writeJob(j: Job) { fs.mkdirSync(stateDir(), { recursive: true }); fs.wr
 
 // ---------- the window, through separate.ps1 (or a test stand-in) ----------
 
-type UiaRead = { open: boolean; count?: number; live_owned?: boolean; boxes?: Record<string, boolean>; missing?: string[]; elements?: unknown[]; live_windows?: string[] };
+type UiaRead = { open: boolean; unreadable?: boolean; cloaked?: boolean; count?: number; live_owned?: boolean; boxes?: Record<string, boolean>; missing?: string[]; elements?: unknown[]; live_windows?: string[] };
 type UiaPress = { error?: string; message?: string; pressed?: string; result?: string; closed?: boolean; toggled?: string[]; boxes?: Record<string, boolean>; boxes_before?: Record<string, boolean>; window_now?: unknown[]; live_windows?: string[] };
 
 const fixture = () => process.env.SECOND_CHAIR_STEMS_UIA;
@@ -143,6 +144,7 @@ export async function startStems(ask: Ask, a: StartArgs) {
     throw new Error(`A separation started ${mmss(ago(job.started_at))} ago (track ${job.clip.track}, "${job.clip.name}") isn't finished yet. Nothing was done. Call live_separate_stems with action "check" first.`);
   }
   const already = await uia("read");
+  if (already.open && already.unreadable) throw new Error("Live's Separate Stems window is already open, but Windows doesn't show what's inside it (Live may be on another desktop or workspace). Nothing was pressed. Ask the user to show Live and finish or cancel it there.");
   if (already.open) throw new Error(`Live's Separate Stems window is already open. Nothing was pressed. Ask the user to finish it in Live, or call live_separate_stems with action "cancel" to press its Cancel.`);
   const wins = await liveWindows();
   const busy = (wins?.windows ?? []).filter((t) => /save|export|collect|stem|replace|message|settings|preferences|quantize|import/i.test(t));
@@ -177,6 +179,10 @@ export async function startStems(ask: Ask, a: StartArgs) {
   // each real read takes about 1.5 s (PowerShell starting), so poll by time, not by count
   const until = Date.now() + Number(process.env.SECOND_CHAIR_STEMS_OPEN_MS || 10000);
   do { win = await uia("read"); if (!win.open) await new Promise((r) => setTimeout(r, 300)); } while (!win.open && Date.now() < until);
+  if (win.open && win.unreadable) {
+    writeJob({ ...newJob, phase: "cancelled" });
+    throw new Error(`Live's Separate Stems window opened, but Windows doesn't show what's inside it${win.cloaked ? " (it's hidden: Live may be on another desktop or workspace)" : ""}, so nothing was pressed and nothing was separated. The window is still open in Live: ask the user to show Live and press Cancel or Separate there. ${BY_HAND}`);
+  }
   if (!win.open) {
     writeJob({ ...newJob, phase: "cancelled" });
     throw new Error(`The menu command went to Live, but its Separate Stems window didn't open within 10 s. Nothing was separated. Likely reasons (a guess): this Live isn't Suite 12.3 or later, the clip can't be separated, or Live was busy. Check with live_screenshot. ${BY_HAND}`);
@@ -311,6 +317,7 @@ export async function cancelStems() {
   guard();
   const w = await uia("read");
   const job = readJob();
+  if (w.open && w.unreadable) throw new Error("Live's Separate Stems window is open, but Windows doesn't show what's inside it (Live may be on another desktop or workspace), so Cancel can't be pressed. Ask the user to show Live and press Cancel there.");
   if (w.open) {
     const r = await uia("cancel");
     if (r.error) throw new Error(`Pressing Cancel failed: ${r.message} Ask the user to press Cancel in Live's Separate Stems window.`);

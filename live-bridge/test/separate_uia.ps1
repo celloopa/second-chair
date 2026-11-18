@@ -6,11 +6,13 @@ $here = $PSScriptRoot
 $script = Join-Path $here '..\mcp\separate.ps1'
 $failed = 0
 function Check($ok, $what) { if ($ok) { Write-Output "ok   $what" } else { Write-Output "FAIL $what"; $script:failed++ } }
-function Start-Window($out) {
+function Start-Window($out, [switch]$Cloak) {
   if (Test-Path $out) { Remove-Item $out }
   # the last stand-in must be gone first, or this would find it
   for ($i = 0; $i -lt 20; $i++) { $r = & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Action read -OwnerLike powershell | ConvertFrom-Json; if (-not $r.open) { break }; Start-Sleep -Milliseconds 250 }
-  $p = Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $here 'separate_window.ps1'), '-Out', $out, '-Seconds', '40') -PassThru -WindowStyle Hidden
+  $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $here 'separate_window.ps1'), '-Out', $out, '-Seconds', '40')
+  if ($Cloak) { $argv += '-Cloak' }
+  $p = Start-Process powershell -ArgumentList $argv -PassThru -WindowStyle Hidden
   # wait until UIA sees it
   for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Milliseconds 250
@@ -62,6 +64,19 @@ $x = & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Action cance
 Check ($x.error -eq 'no-live' -or $x.error -eq 'no-window' -or $x.error -eq 'not-live') "with the default owner (Ableton Live) the stand-in is never pressed ($($x.error))"
 Start-Sleep -Milliseconds 300
 Check (-not (Test-Path $out)) 'nothing was pressed in the stand-in'
+if (-not $p.HasExited) { $p.Kill() }
+if (Test-Path $out) { Remove-Item $out }
+
+# 5. a cloaked window (how GlazeWM hides Live on another workspace): still found, set and pressed
+$p, $r = Start-Window $out -Cloak
+Check ($r -ne $null -and $r.cloaked) "read finds a cloaked Separate Stems window by handle (cloaked=$(if ($r) { $r.cloaked }))"
+if ($r) {
+  $s = Invoke-Separate @('-Action', 'set', '-Want', 'vocals=1,drums=0,bass=1,others=1,merge=0,high=1', '-Separate')
+  Check ($s.pressed -eq 'Separate' -and $s.closed) "set -Separate works on the cloaked window ($($s.result), closed=$($s.closed))"
+  Start-Sleep -Milliseconds 300
+  $got = if (Test-Path $out) { Get-Content $out -Raw | ConvertFrom-Json } else { $null }
+  Check ($got -and $got.pressed -eq 'Separate' -and -not $got.Drums) 'the cloaked window got Separate with Drums off'
+}
 if (-not $p.HasExited) { $p.Kill() }
 if (Test-Path $out) { Remove-Item $out }
 

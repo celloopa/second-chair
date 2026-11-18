@@ -291,6 +291,7 @@ Needs Live Suite 12.3 or later, Windows, a saved set and the 0.11.0 Live script.
   - A tempo change is reported with an offer to set it back, never done on its own.
   - With no job, it lists the stem groups and files in the set. `live_status` adds `stem_separation` while a job runs.
 - **Cancel** (`{action: "cancel"}`): presses Cancel while the window is open. While Live is separating there is no window it may press, so it says to ask the user.
+- **Hidden workspaces (0.14.1):** GlazeWM hides windows on a workspace that isn't showing by "cloaking" them. UI Automation's desktop tree leaves cloaked windows out, so the 0.13.0 search would miss the window while Live sat on another workspace. `separate.ps1` now finds the window by its Win32 title first (`EnumWindows`, Live's processes only) and reads it by handle, which still works for a cloaked window. It reports `cloaked`. If Win32 sees the window but nothing inside it can be read, it says so and presses nothing. Checked on a cloaked stand-in (`separate_window.ps1 -Cloak`); not yet with Live itself on a hidden workspace.
 - **Not revertible:** Live makes the tracks itself, so `live_revert` has nothing to take back.
 - **Mac:** refused with the by-hand steps; the window there hasn't been looked at. **Arrangement clips:** refused for now, because the Live script can only select a Session slot.
 - **Tests:**
