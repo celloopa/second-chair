@@ -2,7 +2,7 @@
 // Live's Python API has no save, export, group, freeze or stem calls, so these go through Live's menu bar instead.
 // Windows: menu.ps1 posts WM_COMMAND to Live's main window (Live 12 has a standard Win32 menu bar there). No focus,
 //   no mouse, no keys, no clipboard: Live can stay in the background.
-// Mac: menu-mac.js clicks the menu item through System Events (needs Accessibility). Written but NOT TESTED on a Mac yet.
+// Mac: menu-mac.js clicks the menu item through System Events (needs Accessibility). Checked in real Live 12.4.16 on a Mac (2026-11-19): list, and View > Browser fired.
 // Items are found by name, never by position or number, and only commands on the allow-list below are fired.
 // Tests: SECOND_CHAIR_LIVE_MENU points at a JSON menu instead of real Live ({"window": false} = Live not open).
 import { execFile } from "node:child_process";
@@ -219,7 +219,7 @@ export async function liveMenu(want: string, opts: { allowSave?: boolean } = {})
   }
   const out: Record<string, unknown> = {
     fired: show(hit.names), kind: c.kind,
-    how: ON_MAC ? "clicked through System Events (Mac route: not yet tested)" : "posted to Live's window as a menu command; Live stayed where it was (no focus, mouse, keys or clipboard)",
+    how: ON_MAC ? "clicked through System Events; Live stayed in the background" : "posted to Live's window as a menu command; Live stayed where it was (no focus, mouse, keys or clipboard)",
   };
   // Live 12.4.16 on Windows never greys out or ticks its menu items, so a command that doesn't apply right now
   // (nothing selected, say) is still sent, and Live just ignores it. Only a look at Live shows what happened.

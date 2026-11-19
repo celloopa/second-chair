@@ -85,7 +85,7 @@ To add it to HeyClicky, go to Settings > Integrations > Custom connectors and ad
   - `live_menu`: fires one menu command by name, such as `View > Browser`. On Windows it posts the command to Live's window (`mcp/menu.ts` with `menu.ps1`), so Live can stay in the background and the mouse, keys and clipboard aren't touched. It works only on an allow-list: commands that open a dialog, change only the view, or save. New, Open, Close Window and Quit are always refused. An unknown name is refused with the close matches.
   - Live 12.4 on Windows never marks its menu items greyed out or ticked, so a command that needs a selection is sent anyway. After a dialog command, the tool reports which window opened.
   - `live_save`: saves a set that already has a file, then checks that the `*` left the title, the `.als` changed and no message box appeared in Live's `Log.txt`. If Live answers with Save As (a copy of a template opened from disk), it says so. If anything fails, it asks the user to press Ctrl+S; computer use stays the fallback.
-  - On the Mac, `menu-mac.js` clicks the menu through System Events (needs Accessibility). It is written but not yet tested.
+  - On the Mac, `menu-mac.js` clicks the menu through System Events (needs Accessibility). Checked in real Live 12.4.16 on a Mac (2026-11-19): the menu list and View > Browser. Not checked on a Mac: `live_save`.
 - **Less screen, part 2** (bridge 0.11.0, server 0.12.0; an older bridge gets an "update the Live script and restart Live" answer):
   - `live_status` has `dialog: {open, text, buttons, source}` from Live's own message-box properties, plus `dialog.log`: the `Message Box:` lines in Live's `Log.txt` since Live last started (`mcp/dialogs.ts`). The log never says when a box closes. If the bridge doesn't answer, `live_status` names the newest logged box (a crash-recovery question, for example). Nothing presses a dialog button.
   - `live_select_clip {track, slot}`: sets `song.view.highlighted_clip_slot` and `detail_clip`, and shows Session and Clip View (`show: false` skips that), so a `live_menu` command that acts on the selection has a target. It reports what Live says is selected.
@@ -322,6 +322,14 @@ Windows' own Save and Open boxes ("file pickers") that Live opens: File > Save L
   - `test/filedialog_uia.ps1` runs `filedialog.ps1` on real Windows file pickers opened by `test/filedialog_window.ps1` (WinForms Save and Open dialogs): read, fill, a picker with a suggested name, Replace answered No and then Yes, Cancel, Open, and that a picker not owned by Live is never touched. The stand-in pickers show on screen for a few seconds each.
   - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** File > Save a Copy by name, then `live_file_dialog` read the hidden picker (folder, suggested name "ZZ Scratch Copy", file type "Ableton Live Set (*.als)") and saved exactly at the path given. Over that file again: the tool refused first; the script alone met Windows' Replace box and answered No (file untouched); `replace: true` replaced it. Cancel closed the picker. The open set stayed ZZ Scratch with nothing unsaved.
   - **Not checked in real Live:** `live_save {path}` on an Untitled set (`live_menu` won't open a new set), the Export save picker after a real render, and an Import through the Open picker.
+
+## Mac menu read and Mac tests (0.16.1)
+
+From the Mac update to 0.16.0 (2026-11-19). Server only; the Live script stays 0.11.0.
+
+- **`live_menu` on the Mac was too slow:** `menu-mac.js list` asked System Events about every menu item one by one (several calls per item). It took about 27 s on a busy Mac, past `menu.ts`'s 20 s limit, so `live_menu` and `live_save` failed with "Command failed". It now reads each menu depth in bulk (names, enabled, check marks: three calls per depth), about 0.9 s, with the old item-by-item read as a fallback. The result is identical to the old read (compared on Live 12.4.16).
+- **Checked in real Live on a Mac:** `live_menu` View > Browser fired twice (browser hid, came back), about 1.5 s per call.
+- **Tests on a Mac:** `mcp_client.ts` expects Cmd+S on a Mac, and runs the stem separation, file picker and export checks on Windows only; on a Mac it checks those three tools refuse ("isn't built for the Mac"). The fake-Live test passes on the Mac.
 
 ## Offline mode and tool marks (0.16.0)
 

@@ -678,6 +678,8 @@ await expect("refused", "live_listen", {}, "no Second Chair Ears device is repor
 }
 
 // Live's menu bar (live_menu, live_save): a stand-in menu. Real Live is never touched here.
+// On a Mac the tools name Cmd+S, and stem separation, file pickers and export refuse (their windows are Windows-only so far).
+const ON_MAC = process.platform === "darwin", SAVE_KEY = ON_MAC ? "Cmd+S" : "Ctrl+S";
 const item = (name: string, id: number, enabled = true) => ({ name, id, enabled, checked: false });
 fs.writeFileSync(process.env.SECOND_CHAIR_LIVE_MENU!, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version: "12.4.16", menus: [
   { name: "File", items: [item("New Live Set", 2070), item("Save Live Set", 2081), item("Save Live Set As...", 2082), item("Save a Copy...", 2083), item("Quit", 2091)] },
@@ -695,8 +697,8 @@ await expect("refused", "live_menu", { path: "View > Full Screen" }, "isn't on l
 await expect("refused", "live_menu", { path: "Edit > Consolidate" }, "isn't on live_menu's list");
 await expect("refused", "live_menu", { path: "Create > Separate Stems to New Audio Tracks" }, "greyed out");
 await expect("refused", "live_menu", { path: "File > Save Live Set" }, "use live_save");
-// The stand-in Live never clears its *, so live_save must fire Save, then say it didn't land and ask for Ctrl+S.
-await expect("refused", "live_save", {}, "please press Ctrl+S");
+// The stand-in Live never clears its *, so live_save must fire Save, then say it didn't land and ask for Ctrl+S (Cmd+S on a Mac).
+await expect("refused", "live_save", {}, `please press ${SAVE_KEY}`);
 // A message box appearing in Live's log stops the wait and is reported.
 setTimeout(() => fs.appendFileSync(process.env.SECOND_CHAIR_LIVE_LOG!, "info: Message Box: The file could not be written.\n"), 500);
 await expect("refused", "live_save", {}, "The file could not be written");
@@ -716,7 +718,7 @@ await expect("refused", "live_menu", { path: "View > Browser" }, "Live is not op
 await expect("refused", "live_save", {}, "Save didn't go through");
 // Stem Separation (live_separate_stems, 0.13.0): a stand-in menu and Separate Stems window; fake_live plays the set.
 // Real Live and its window are never touched here (the UIA part has its own check: test/separate_uia.ps1).
-{
+if (!ON_MAC) {
   const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, UIA = process.env.SECOND_CHAIR_STEMS_UIA!;
   const stemMenu = (version = "12.4.16", windows: string[] = []) => fs.writeFileSync(MENU, JSON.stringify({ title: "my-song* - Ableton Live 12 Suite", version, windows,
     menus: [{ name: "Create", items: [item("Separate Stems to New Audio Tracks", 2231)] }, { name: "Navigate", items: [item("Session View", 2332)] }], opens: { "Create > Separate Stems to New Audio Tracks": "Separate Stems" } }));
@@ -786,10 +788,10 @@ await expect("refused", "live_save", {}, "Save didn't go through");
     await fakeAsk("fake_user_tempo", { bpm: tempo });
     fs.rmSync(path.join(project, "Samples", "Processed"), { recursive: true, force: true });
   }
-}
+} else await expect("refused", "live_separate_stems", {}, "isn't built for the Mac"); // its window hasn't been looked at on a Mac
 // File pickers (live_file_dialog and live_save with path, 0.14.0): a stand-in menu and picker. Real Live and its
 // pickers are never touched here (the Windows part has its own check: test/filedialog_uia.ps1).
-{
+if (!ON_MAC) {
   const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, PICK = process.env.SECOND_CHAIR_FILE_DIALOG!;
   const dir = path.join(MENU_DIR, "Song Project"); fs.mkdirSync(dir, { recursive: true });
   const at = (f: string) => path.join(dir, f);
@@ -837,10 +839,10 @@ await expect("refused", "live_save", {}, "Save didn't go through");
   const sa = js(await expect("ok", "live_save", { path: at("New Song.als") }, "\"fired\": \"File > Save Live Set As\""));
   if (sa.file !== at("New Song.als") || !sa.done) { failed++; console.log("!! live_save with path should save through the picker: " + JSON.stringify(sa)); }
   await fakeAsk("fake_set_path", {});
-}
+} else await expect("refused", "live_file_dialog", { path: path.join(MENU_DIR, "x.als") }, "isn't built for the Mac");
 // Export without the screen (live_export, 0.15.0): a stand-in menu, Export window and save picker. Real Live is never
 // touched here (the Windows part has its own check: test/livewindow_uia.ps1).
-{
+if (!ON_MAC) {
   const MENU = process.env.SECOND_CHAIR_LIVE_MENU!, WIN = process.env.SECOND_CHAIR_LIVE_WINDOW!, PICK = process.env.SECOND_CHAIR_FILE_DIALOG!;
   const dir = path.join(MENU_DIR, "Bounces"); fs.mkdirSync(dir, { recursive: true });
   const at = (f: string) => path.join(dir, f);
@@ -879,7 +881,7 @@ await expect("refused", "live_save", {}, "Save didn't go through");
   await expect("ok", "live_export", { keep_open: true }, "The window is open in Live");
   await expect("ok", "live_export", { action: "cancel" }, "\"pressed\": \"Cancel\"");
   await expect("ok", "live_export", { action: "cancel" }, "Nothing to cancel");
-}
+} else await expect("refused", "live_export", { path: path.join(MENU_DIR, "x.wav") }, "isn't built for the Mac");
 fs.rmSync(MENU_DIR, { recursive: true, force: true });
 
 // a client without the token must be refused by the bridge itself

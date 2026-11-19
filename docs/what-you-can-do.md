@@ -240,7 +240,7 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 - "Save my set": `live_save` saves a set that already has a file, with Live in the background. It checks the save really happened: the `*` leaves the title, the file changes, and Live shows no message box.
 - A set that was made by an older Live, or a copy of a template, opens Save As the first time. The tool says so and asks you to press Ctrl+S once.
 - `live_menu` runs one of Live's menu commands by name, such as View > Browser, only when you ask. It never runs New, Open, Close Window or Quit.
-- Windows only for now. The Mac version is written but not tested.
+- Windows and Mac. On a Mac, the app that runs Second Chair needs Accessibility permission (System Settings > Privacy & Security > Accessibility). Saving this way on a Mac hasn't been checked yet.
 
 ### More without the screen (Live script 0.11.0)
 
