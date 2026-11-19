@@ -1,0 +1,986 @@
+{
+ "about": "Knowledge questions for local_bench.ts, asked with no tools. 'choice' questions are multiple choice with one right letter, checked by the script. 'open' questions get a free answer that is saved for a person to read; 'look_for' gives a rough count of the points a good answer covers, not a grade. This is a test set: never use it as training data. Written by the offline-mode research chat on 2026-11-18; its answer keys haven't been checked by a second reader yet. Run with local_bench.ts --part knowledge.",
+ "choice": [
+  {
+   "id": "T01",
+   "area": "theory",
+   "q": "Which notes make up a Dm7 chord?",
+   "options": [
+    "D F A C",
+    "D F# A C",
+    "D F A C#",
+    "D F Ab C"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "T02",
+   "area": "theory",
+   "q": "Which notes are in E dorian?",
+   "options": [
+    "E F G A B C D",
+    "E F# G A B C D",
+    "E F# G A B C# D",
+    "E F# G# A B C# D"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "T03",
+   "area": "theory",
+   "q": "What is the relative minor of E flat major?",
+   "options": [
+    "E flat minor",
+    "G minor",
+    "B flat minor",
+    "C minor"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "T04",
+   "area": "theory",
+   "q": "In A natural minor, which triad is built on the fifth note of the scale?",
+   "options": [
+    "E major",
+    "E minor",
+    "E diminished",
+    "D minor"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "T05",
+   "area": "theory",
+   "q": "Which is a ii-V-I progression in C major?",
+   "options": [
+    "Dm7 G7 Cmaj7",
+    "Em7 A7 Dmaj7",
+    "Fmaj7 G7 Cmaj7",
+    "Dm7 Fmaj7 Cmaj7"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "T06",
+   "area": "theory",
+   "q": "What interval is it from C up to A flat?",
+   "options": [
+    "Major sixth",
+    "Augmented fourth",
+    "Minor sixth",
+    "Minor seventh"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "T07",
+   "area": "theory",
+   "q": "Which mode is a major scale with a lowered seventh note?",
+   "options": [
+    "Lydian",
+    "Dorian",
+    "Phrygian",
+    "Mixolydian"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "T08",
+   "area": "theory",
+   "q": "Which note is a tritone above F?",
+   "options": [
+    "B",
+    "C",
+    "B flat",
+    "A"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "T09",
+   "area": "theory",
+   "q": "Which notes are in the C major pentatonic scale?",
+   "options": [
+    "C D E F G",
+    "C D E G A",
+    "C E flat F G B flat",
+    "C D F G A"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "T10",
+   "area": "theory",
+   "q": "What does the chord symbol G/B mean?",
+   "options": [
+    "A G chord or a B chord, player's choice",
+    "A B chord with G in the bass",
+    "A G major chord with B as the lowest note",
+    "A chord with only the notes G and B"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "T11",
+   "area": "theory",
+   "q": "At 120 BPM in 4/4, how long does one quarter note last?",
+   "options": [
+    "250 ms",
+    "1000 ms",
+    "120 ms",
+    "500 ms"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "T12",
+   "area": "theory",
+   "q": "In a sus4 chord, which note of the triad is replaced by the fourth?",
+   "options": [
+    "The third",
+    "The root",
+    "The fifth",
+    "The seventh"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "T13",
+   "area": "theory",
+   "q": "Which chord is the dominant seventh (V7) in the key of F major?",
+   "options": [
+    "F7",
+    "C7",
+    "G7",
+    "B flat 7"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "T14",
+   "area": "theory",
+   "q": "How is a bar of 6/8 usually felt?",
+   "options": [
+    "Three beats, each split in two",
+    "Six equal strong beats",
+    "Two beats, each split in three",
+    "Four beats with a triplet at the end"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "T15",
+   "area": "theory",
+   "q": "In G major, which chords are vi - IV - I - V?",
+   "options": [
+    "Am F C G",
+    "Bm G D A",
+    "Em D G C",
+    "Em C G D"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "T16",
+   "area": "theory",
+   "q": "How many semitones are in a perfect fifth?",
+   "options": [
+    "7",
+    "5",
+    "6",
+    "8"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "T17",
+   "area": "theory",
+   "q": "What is the one-note difference between Cmaj7 and C7?",
+   "options": [
+    "Cmaj7 has E flat, C7 has E",
+    "Cmaj7 has B, C7 has B flat",
+    "Cmaj7 has G sharp, C7 has G",
+    "Cmaj7 has B flat, C7 has B"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "T18",
+   "area": "theory",
+   "q": "C major and C minor share a root. What is that relationship called?",
+   "options": [
+    "Relative keys",
+    "Enharmonic keys",
+    "Parallel keys",
+    "Dominant keys"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "R01",
+   "area": "arrangement",
+   "q": "In most pop and electronic music in 4/4, how long are sections such as a verse or chorus most often?",
+   "options": [
+    "5 or 7 bars",
+    "Exactly 12 bars",
+    "Any length, with no pattern",
+    "8 or 16 bars"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "R02",
+   "area": "arrangement",
+   "q": "What is the usual job of a pre-chorus?",
+   "options": [
+    "To build tension between the verse and the chorus",
+    "To end the song",
+    "To repeat the intro exactly",
+    "To give the singer a rest with silence"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "R03",
+   "area": "arrangement",
+   "q": "A producer wants the chorus to feel bigger without making the master louder. Which arrangement move helps most?",
+   "options": [
+    "Make the chorus shorter",
+    "Take parts out of the verse before it, so the chorus has more to add",
+    "Use the same parts in both sections",
+    "Slow the tempo in the chorus"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "R04",
+   "area": "arrangement",
+   "q": "What does a riser or noise sweep usually signal?",
+   "options": [
+    "The quietest part of the song",
+    "A key change only",
+    "That a new section is about to start",
+    "The end of the mixdown"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "R05",
+   "area": "arrangement",
+   "q": "What is 'call and response'?",
+   "options": [
+    "Two instruments playing the same notes together",
+    "A delay effect with long feedback",
+    "Recording the same part twice",
+    "One phrase answered by a different phrase"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "R06",
+   "area": "arrangement",
+   "q": "An 8-bar loop sounds good but gets boring when repeated. What is a sensible first move?",
+   "options": [
+    "Make small changes over time: drop a part out, add a fill at the end of bar 8, automate a filter",
+    "Add ten more tracks at once",
+    "Raise every track's volume",
+    "Double the tempo"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "R07",
+   "area": "arrangement",
+   "q": "Two parts play in the same octave with the same rhythm and blur together. Which arrangement fix is most direct?",
+   "options": [
+    "Add reverb to both",
+    "Move one part up or down an octave, or change its rhythm",
+    "Pan both to the centre",
+    "Turn both up"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "R08",
+   "area": "arrangement",
+   "q": "What is a bridge (or 'middle 8')?",
+   "options": [
+    "The first four bars of a song",
+    "Another name for the chorus",
+    "A contrasting section, usually heard once, late in the song",
+    "The fade-out"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "R09",
+   "area": "arrangement",
+   "q": "In dance music, what usually comes straight before 'the drop'?",
+   "options": [
+    "The outro",
+    "A second drop",
+    "A fade to silence for 16 bars",
+    "A build-up"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "R10",
+   "area": "arrangement",
+   "q": "The kick and the bass both hit hard on the same low notes and the low end is messy. Which approach is common?",
+   "options": [
+    "Let one of them own the lowest range, or duck the bass when the kick hits",
+    "Boost the lows on both",
+    "Add a third low instrument",
+    "Pan the kick hard left and the bass hard right"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "R11",
+   "area": "arrangement",
+   "q": "Compared with the chorus, an intro usually has...",
+   "options": [
+    "More parts and more energy",
+    "Fewer parts and less energy",
+    "The loudest drums in the song",
+    "A faster tempo"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "R12",
+   "area": "arrangement",
+   "q": "What is a 'fill' in a drum part?",
+   "options": [
+    "A second kick drum layer",
+    "The reverb on the snare",
+    "A short variation, often at the end of a phrase, that leads into the next section",
+    "A silent bar"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "L01",
+   "area": "ableton",
+   "q": "What is the main difference between Session View and Arrangement View in Ableton Live?",
+   "options": [
+    "Session View is for mixing only; Arrangement View is for recording only",
+    "They are the same view with different colours",
+    "Session View shows plugins; Arrangement View shows samples",
+    "Session View is a grid of clips you launch freely; Arrangement View is a left-to-right timeline of the song"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "L02",
+   "area": "ableton",
+   "q": "Which key switches between Session View and Arrangement View?",
+   "options": [
+    "Tab",
+    "Space",
+    "Enter",
+    "Shift"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "L03",
+   "area": "ableton",
+   "q": "After launching Session clips, the Arrangement's clips are greyed out and don't play. What brings them back?",
+   "options": [
+    "Restarting Live",
+    "The Back to Arrangement button",
+    "Deleting the Session clips",
+    "Turning the metronome off"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "L04",
+   "area": "ableton",
+   "q": "What does Warp do on an audio clip?",
+   "options": [
+    "Adds distortion",
+    "Reverses the clip",
+    "Lets the clip follow the set's tempo without changing its pitch",
+    "Converts it to MIDI"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "L05",
+   "area": "ableton",
+   "q": "Which warp mode is the usual first choice for a drum loop?",
+   "options": [
+    "Tones",
+    "Texture",
+    "Complex Pro",
+    "Beats"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "L06",
+   "area": "ableton",
+   "q": "What is a return track for?",
+   "options": [
+    "Sharing one effect, such as a reverb, between several tracks through their sends",
+    "Recording the master output",
+    "Storing unused clips",
+    "Undoing the last edit"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "L07",
+   "area": "ableton",
+   "q": "In a Drum Rack, what triggers each pad?",
+   "options": [
+    "An audio input level",
+    "A MIDI note; each pad answers to its own note",
+    "The track's volume fader",
+    "The tempo"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "L08",
+   "area": "ableton",
+   "q": "What does freezing a track do?",
+   "options": [
+    "Deletes its devices",
+    "Locks its volume fader",
+    "Renders the track for now so its devices stop using CPU",
+    "Stops it from being saved"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "L09",
+   "area": "ableton",
+   "q": "Global launch quantization is set to 1 Bar. You launch a Session clip in the middle of a bar. When does it start?",
+   "options": [
+    "Straight away",
+    "After exactly one second",
+    "Never, until you press play again",
+    "At the start of the next bar"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "L10",
+   "area": "ableton",
+   "q": "A track's Monitor is set to Auto. When do you hear its input?",
+   "options": [
+    "When the track is armed",
+    "Always",
+    "Never",
+    "Only when the track is muted"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "L11",
+   "area": "ableton",
+   "q": "Which are Simpler's three modes?",
+   "options": [
+    "Mono, Poly, Legato",
+    "Classic, One-Shot, Slice",
+    "Beats, Tones, Texture",
+    "Loop, Gate, Trigger"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "L12",
+   "area": "ableton",
+   "q": "You played something great on the keyboard but weren't recording. Which Live feature can get it back?",
+   "options": [
+    "Freeze",
+    "Consolidate",
+    "Capture MIDI",
+    "Collect All and Save"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "L13",
+   "area": "ableton",
+   "q": "Where does a MIDI effect such as Arpeggiator go in a track's device chain?",
+   "options": [
+    "After the audio effects",
+    "On a return track",
+    "On the Main track",
+    "Before the instrument"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "L14",
+   "area": "ableton",
+   "q": "What is the Utility device mainly used for?",
+   "options": [
+    "Gain, stereo width, mono and phase",
+    "Reverb and delay",
+    "Pitch correction",
+    "Drum synthesis"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "L15",
+   "area": "ableton",
+   "q": "To set up sidechain compression with Live's Compressor so a pad ducks to the kick, what do you do?",
+   "options": [
+    "Put the Compressor on the kick and turn its volume up",
+    "Put the Compressor on the pad, open its Sidechain section and choose the kick track as the input",
+    "Group the kick and the pad",
+    "Send both to the same return"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "L16",
+   "area": "ableton",
+   "q": "What does Collect All and Save do?",
+   "options": [
+    "Bounces every track to audio",
+    "Deletes unused samples",
+    "Copies the samples the set uses into its project folder",
+    "Uploads the set to the cloud"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "L17",
+   "area": "ableton",
+   "q": "The Main track's meter goes over 0 dB and clips. What is the cleanest first fix?",
+   "options": [
+    "Ignore it",
+    "Turn the monitors down",
+    "Add more compression to every track",
+    "Turn the tracks (or their group) down until Main peaks below 0 dB"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "L18",
+   "area": "ableton",
+   "q": "What does the Groove Pool do?",
+   "options": [
+    "Applies a timing and swing feel to clips",
+    "Stores presets for reverbs",
+    "Lists the audio interface's inputs",
+    "Tunes samples to the set's key"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "S01",
+   "area": "sound design",
+   "q": "What does a low-pass filter do?",
+   "options": [
+    "Cuts the lows below the cutoff",
+    "Lets the lows through and cuts the highs above the cutoff",
+    "Boosts everything",
+    "Removes only the mid frequencies"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "S02",
+   "area": "sound design",
+   "q": "In an ADSR envelope, which stage is a level rather than a time?",
+   "options": [
+    "Attack",
+    "Decay",
+    "Sustain",
+    "Release"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "S03",
+   "area": "sound design",
+   "q": "You want a pad to fade in slowly when a key is pressed. Which setting do you raise?",
+   "options": [
+    "Filter resonance",
+    "The amp envelope's release",
+    "The oscillator's octave",
+    "The amp envelope's attack"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "S04",
+   "area": "sound design",
+   "q": "Which amp envelope gives a short, plucky sound?",
+   "options": [
+    "Fast attack, short decay, low or zero sustain",
+    "Slow attack, full sustain, long release",
+    "Slow attack, no decay, full sustain",
+    "Fast attack, full sustain, very long release"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "S05",
+   "area": "sound design",
+   "q": "What happens when you slightly detune two saw oscillators against each other?",
+   "options": [
+    "The sound gets quieter and thinner",
+    "The sound gets thicker, with a slow beating movement",
+    "The pitch drops an octave",
+    "The sound becomes a sine wave"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "S06",
+   "area": "sound design",
+   "q": "What does a filter's resonance control do?",
+   "options": [
+    "Sets the filter's attack time",
+    "Changes the oscillator's waveform",
+    "Boosts the frequencies around the cutoff",
+    "Pans the sound"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "S07",
+   "area": "sound design",
+   "q": "What is an LFO used for?",
+   "options": [
+    "Making the sound louder overall",
+    "Recording automation",
+    "Tuning the synth to the key",
+    "Moving a setting up and down in a repeating cycle, like vibrato or a filter wobble"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "S08",
+   "area": "sound design",
+   "q": "Which waveform gives the cleanest sub bass?",
+   "options": [
+    "Sine",
+    "Saw",
+    "Square",
+    "White noise"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "S09",
+   "area": "sound design",
+   "q": "A sine sub bass disappears on phone speakers. What helps it be heard there?",
+   "options": [
+    "Turning the sub down",
+    "Adding saturation, which adds harmonics above the sub",
+    "A low-pass filter at 60 Hz",
+    "More reverb"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "S10",
+   "area": "sound design",
+   "q": "What is FM synthesis?",
+   "options": [
+    "Layering recorded samples",
+    "Filtering white noise",
+    "One oscillator changing the frequency of another to make new overtones",
+    "Playing a wavetable backwards"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "S11",
+   "area": "sound design",
+   "q": "Which of Live's instruments is its FM synth?",
+   "options": [
+    "Simpler",
+    "Drift",
+    "Analog",
+    "Operator"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "S12",
+   "area": "sound design",
+   "q": "In a wavetable synth, what creates movement in the tone?",
+   "options": [
+    "Moving the wavetable position, by hand or with an envelope or LFO",
+    "Raising the track volume",
+    "Changing the set's tempo",
+    "Renaming the preset"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "S13",
+   "area": "sound design",
+   "q": "What does pre-delay on a reverb do?",
+   "options": [
+    "Makes the reverb longer",
+    "Leaves a short gap before the reverb starts, which keeps the dry sound clear",
+    "Removes the reverb's low end",
+    "Reverses the reverb"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "S14",
+   "area": "sound design",
+   "q": "At 120 BPM, how long is a dotted-eighth-note delay?",
+   "options": [
+    "250 ms",
+    "500 ms",
+    "375 ms",
+    "333 ms"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "S15",
+   "area": "sound design",
+   "q": "Why put a high-pass filter at around 150 to 200 Hz on a pad?",
+   "options": [
+    "To make it brighter",
+    "To make it louder",
+    "To add distortion",
+    "To leave room for the bass and kick"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "S16",
+   "area": "sound design",
+   "q": "What does glide (portamento) do on a synth?",
+   "options": [
+    "Slides the pitch from one note to the next",
+    "Adds an echo",
+    "Widens the stereo image",
+    "Shortens the release"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "S17",
+   "area": "sound design",
+   "q": "You map velocity to filter cutoff. What happens?",
+   "options": [
+    "Harder notes play longer",
+    "Harder notes sound brighter",
+    "Harder notes are lower in pitch",
+    "Nothing changes"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "S18",
+   "area": "sound design",
+   "q": "Which Live device is built to add punch and weight to drums, with Drive, Crunch, Transients and Boom controls?",
+   "options": [
+    "Auto Pan",
+    "Corpus",
+    "Drum Buss",
+    "Spectral Time"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "S19",
+   "area": "sound design",
+   "q": "What does a chorus effect do to a sound?",
+   "options": [
+    "Removes its harmonics",
+    "Tunes it to the scale",
+    "Gates it in rhythm",
+    "Mixes in slightly delayed, moving copies, so it sounds thicker and wider"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "S20",
+   "area": "sound design",
+   "q": "A kick is made of a sub layer and a click layer. What should you check when the two are combined?",
+   "options": [
+    "That the layers are in phase, so the low end doesn't cancel",
+    "That both are panned to opposite sides",
+    "That both have long reverb",
+    "That the click is lower in pitch than the sub"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "M01",
+   "area": "second chair",
+   "q": "The helper just loaded a sound through Second Chair and the user says 'undo that'. Which is the safer tool, and why?",
+   "options": [
+    "live_undo, because it is faster",
+    "live_revert, because it only takes back the helper's own changes, while live_undo can also undo the user's edits",
+    "live_delete_track, because the track is new",
+    "live_transport, to stop playback first"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "M02",
+   "area": "second chair",
+   "q": "The user is colorblind. How should the helper point to a clip?",
+   "options": [
+    "'The red clip'",
+    "'The brighter one'",
+    "By track name and slot number, such as 'the clip in slot 3 of the Keys track'",
+    "'The one that stands out'"
+   ],
+   "answer": "C"
+  },
+  {
+   "id": "M03",
+   "area": "second chair",
+   "q": "The user asks 'does my snare sound good?'. The helper has only text tools. What is the honest answer?",
+   "options": [
+    "'Yes, it sounds great.'",
+    "'No, replace it.'",
+    "'It sounds a bit boxy at 400 Hz.'",
+    "Say it can't hear the audio, offer to check levels or settings, and ask what the user hears"
+   ],
+   "answer": "D"
+  },
+  {
+   "id": "M04",
+   "area": "second chair",
+   "q": "Second Chair numbers tracks from 0. The user says 'the third track'. Which track number do the tools need?",
+   "options": [
+    "2",
+    "3",
+    "4",
+    "1"
+   ],
+   "answer": "A"
+  },
+  {
+   "id": "M05",
+   "area": "second chair",
+   "q": "Under the mentor rule, the user asks 'what tempo should I use for a lo-fi beat?'. What fits best?",
+   "options": [
+    "Set the tempo without saying anything",
+    "Suggest a usual range with the reason, and let the user choose by ear",
+    "Refuse to answer",
+    "Write the whole beat"
+   ],
+   "answer": "B"
+  },
+  {
+   "id": "M06",
+   "area": "second chair",
+   "q": "The user says 'find me a warm pad'. What should the helper do?",
+   "options": [
+    "Load the first match straight away",
+    "Write a pad part into a clip",
+    "Show a short numbered list of matches and let the user pick",
+    "Delete the current instrument to make room"
+   ],
+   "answer": "C"
+  }
+ ],
+ "open": [
+  {
+   "id": "O1",
+   "area": "mixing",
+   "q": "My mix sounds muddy. What should I check first?",
+   "look_for": [
+    "200|250|300|400|500|low[- ]mid",
+    "high[- ]pass|low[- ]cut",
+    "bass|kick|low end",
+    "can't hear|cannot hear|by ear|listen"
+   ]
+  },
+  {
+   "id": "O2",
+   "area": "sound design",
+   "q": "How do I make a warm pad from scratch on a synth? Keep it short.",
+   "look_for": [
+    "attack",
+    "release",
+    "low[- ]pass|filter",
+    "detun|unison|chorus",
+    "saw|triangle"
+   ]
+  },
+  {
+   "id": "O3",
+   "area": "arrangement",
+   "q": "I have an 8-bar loop I like, but I can't turn it into a song. Where do I start?",
+   "look_for": [
+    "intro|verse|chorus|section",
+    "take (out|away)|remove|mute|subtract|strip",
+    "variation|fill|automat",
+    "duplicate|copy|arrangement"
+   ]
+  },
+  {
+   "id": "O4",
+   "area": "ableton",
+   "q": "I press keys on my MIDI keyboard and hear nothing on this track in Live. What should I check?",
+   "look_for": [
+    "arm",
+    "monitor",
+    "MIDI From|input|port|Preferences|Settings",
+    "instrument",
+    "volume|mute|output"
+   ]
+  },
+  {
+   "id": "O5",
+   "area": "theory",
+   "q": "I'm in E dorian. Which chords can I try, and what makes dorian sound like dorian?",
+   "look_for": [
+    "Em",
+    "A(7| major)?\\b",
+    "C(#|♯| sharp)",
+    "sixth|6th",
+    "try|ear|listen"
+   ]
+  },
+  {
+   "id": "O6",
+   "area": "mastering",
+   "q": "Is my song loud enough for Spotify? What number should I look at?",
+   "look_for": [
+    "LUFS",
+    "-?14",
+    "true peak|-1 ?dB",
+    "export|bounce|file|measure"
+   ]
+  },
+  {
+   "id": "O7",
+   "area": "sound design",
+   "q": "How do I make an 808-style bass that slides between notes?",
+   "look_for": [
+    "sine|808",
+    "glide|portamento|slide",
+    "mono|legato|overlap",
+    "decay|release|saturat|distort"
+   ]
+  },
+  {
+   "id": "O8",
+   "area": "arrangement",
+   "q": "My chorus doesn't feel bigger than my verse. Give me three things to try.",
+   "look_for": [
+    "remove|take (out|away)|strip|fewer|drop",
+    "layer|double|harmon|octave",
+    "wide|stereo|pan",
+    "drum|energy|hat|crash|fill|riser"
+   ]
+  }
+ ]
+}

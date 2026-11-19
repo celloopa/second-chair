@@ -699,8 +699,11 @@ import SecondChair  # noqa: E402
 
 # Spare UDP ports, so a test run never talks to the real Chord Coach while Live is open. Set SECOND_CHAIR_PORT
 # (for example 19885) to test while Live itself holds 9885; mcp_client.ts and the MCP server read it too.
-SecondChair.OSC_IN_PORT, SecondChair.OSC_OUT_PORT, SecondChair.EARS_PORT = 19886, 19887, 19888
 SecondChair.PORT = int(os.environ.get("SECOND_CHAIR_PORT", SecondChair.PORT))
+# The UDP ports follow the TCP port (+1, +2, +3), so two fake Lives on different ports never clash: 19885 gives
+# 19886-19888 as before; the offline benchmark uses 29885.
+_base = SecondChair.PORT if SecondChair.PORT != 9885 else 19885
+SecondChair.OSC_IN_PORT, SecondChair.OSC_OUT_PORT, SecondChair.EARS_PORT = _base + 1, _base + 2, _base + 3
 
 # A fake-only action: from now on, new tracks land after the selected track, as in real Live.
 # (Off at first, so the other tests' track numbers stay put.)

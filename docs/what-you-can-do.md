@@ -260,6 +260,13 @@ Limits: it adds notes; it doesn't delete or rewrite notes already in a clip. Wit
 - It works even when Live sits on another desktop or workspace. It only fills Windows' own file boxes, never Live's own windows, so Live's Export settings and its Export button stay yours (or computer use).
 - Windows only for now. On the Mac it tells you what to type.
 
+### Offline mode, for when there's no internet (0.16.0, a first version)
+
+- Start the tools with `SECOND_CHAIR_TOOLS=offline` (for example in LM Studio's MCP settings) and a local model can help with no internet. It can do theory, look at your set, check levels, play and stop, and find sounds.
+- It can't change your set: anything that would (write, load, delete, tempo, mixing, recording) is saved for later with `hand_to_stronger_model`, and it tells you so.
+- It sees 26 tools with short descriptions (about 3,600 tokens instead of about 21,000), because small models choose worse from long lists.
+- It's new and not measured yet on many models: see `live-bridge/test/local_bench.ts`.
+
 ### Export without the screen (0.15.0)
 
 - "What will the export be?": `live_export` opens Live's Export window, reads it (track, start and length, file type, sample rate, bit depth, Normalize and the other options) and closes it again.

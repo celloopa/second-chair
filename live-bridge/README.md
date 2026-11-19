@@ -323,6 +323,26 @@ Windows' own Save and Open boxes ("file pickers") that Live opens: File > Save L
   - **Real Live 12.4.16, ZZ Scratch, 2026-11-18:** File > Save a Copy by name, then `live_file_dialog` read the hidden picker (folder, suggested name "ZZ Scratch Copy", file type "Ableton Live Set (*.als)") and saved exactly at the path given. Over that file again: the tool refused first; the script alone met Windows' Replace box and answered No (file untouched); `replace: true` replaced it. Cancel closed the picker. The open set stayed ZZ Scratch with nothing unsaved.
   - **Not checked in real Live:** `live_save {path}` on an Untitled set (`live_menu` won't open a new set), the Export save picker after a real render, and an Import through the Open picker.
 
+## Offline mode and tool marks (0.16.0)
+
+From the offline-mode research (2026-11-18). The goal is working with no internet: a small local model (for example in LM Studio) runs the same server with a smaller, safer tool set. Server only (`mcp/profiles.ts`).
+
+- **Tool marks:** every tool's `tools/list` entry carries MCP `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint: false`) from its kind in `profiles.ts`: read, play, edit or risky. A tool missing from the kind map is marked risky, and the server says so on stderr at startup.
+- **`SECOND_CHAIR_TOOLS=offline`:**
+  - `tools/list` shows 26 tools (theory, looking and listening, playing, finding a sound, the user's profile read only) plus `hand_to_stronger_model`, each with a one-line description and argument notes cut to their first sentence: about 3,600 tokens against about 21,000 for all 76.
+  - `tools/call` refuses any other tool, unknown argument names, missing required ones (an empty `{}` is a known small-model bug), saving the studio profile or plugin guide, and record. It's a server-side guard: a tool the model can't see, it can't misuse.
+  - `studio_guide` returns a short offline guide (how to talk, what's possible, when to hand on).
+  - `hand_to_stronger_model {request, reason}` appends to `~/SecondChair/handed-on.jsonl` and says what to tell the user.
+- **The benchmark, `test/local_bench.ts`:** starts its own fake Live (port 29885, UDP +1..+3) and the server in a profile, talks to any OpenAI-compatible endpoint (LM Studio `:1234/v1` by default, Ollama `:11434/v1`), and runs the 41 asks in `test/bench_asks.json` (groups A theory, B look and listen, C play, D small edit, E multi-step, F refuse or hand on), each `--runs` times, with the report's guards (8 calls at most, no repeated call, malformed arguments refused). Checks: tools and arguments, the answer, the fake set's end state, hand-ons, and no change when none is allowed. `--oracle` runs a scripted perfect model to check the harness itself (41/41, 0 wrong changes). Output: `runs.jsonl` (full messages, ready for training later; every line names its source and model, so answers from Claude can be kept out) and `summary.json`.
+- **The word rule** (`wordRule` in `profiles.ts`): words that mean a change or a job for the full model ("load", "set the tempo", "mute", "mix", "save", "build", "look at my set" and so on). A client asks it first and hands a match straight on, without the local model (the research's routing step 1). The benchmark's `--word-rule` does the same; those runs are marked `routed_by: "word-rule"` and aren't the model's own answers.
+- **`theory_name_chord`** takes note names (C, E, G, Bb, low to high) as well as MIDI numbers; a small model got the MIDI numbers wrong.
+- **Other benchmark options:** `--nudge-empty` (one "please answer" after an empty reply), `--mock-wrong` (a careless stand-in: everything must fail; with `--profile all` its changes count as wrong changes), `--part knowledge` (`test/bench_knowledge.json`: 74 multiple-choice and 8 open questions on theory, arrangement, Ableton, sound design and Second Chair's rules, written by the offline-mode research chat; a test set, never training data; the answer keys have no second reader yet).
+- **First results, qwen/qwen3.5-4b (Q4_K_M, 16K context, on an 8 GB RTX 3070 Ti) in LM Studio, 2026-11-18:**
+  - Before the fixes (41 asks x 3): theory 6/8, look 8/8, play 4/6, small edits 4/8, multi-step 2/6, refuse 4/5; right hand-ons 33/51; 0 wrong changes.
+  - With the hand-on rule, note names, `--nudge-empty` and `--word-rule` (50 asks x 3): 11/11, 12/12, 5/6, 8/8, 6/6, 7/7; right hand-ons 57/57; 0 wrong changes; about 3 s an ask. 60 of the 150 runs went by the word rule; the model passed 84 of its own 85.
+  - Not run yet: the knowledge part, larger models, a real Live with audio playing.
+- **fake_live.py:** its UDP ports now follow the TCP port (+1, +2, +3), so two fake Lives on different ports don't clash.
+
 ## Export without the screen (live_export, 0.15.0)
 
 Windows. Server only (`mcp/export.ts`, `mcp/livewindow.ps1`, plus `filedialog.ts` for the save box): no Remote Script change, so no Live restart.

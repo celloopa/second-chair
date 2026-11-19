@@ -1,0 +1,1104 @@
+{
+ "about": "Asks for test/local_bench.ts, scored against fake_live.py's set: tempo 120, track 0 'Keys' (MIDI), track 1 'Bass guitar' (audio, 'vocal loop' in slot 7), returns A-Reverb and B-Delay, scene 0 'Intro'. Groups follow the offline-mode research (Brain inbox/music-studio/offline-mode-research.md, section 5): A theory, B look and listen, C play, D small edit, E multi-step, F refuse or hand on. 'offline' holds the checks for SECOND_CHAIR_TOOLS=offline; 'all' (when present) for the full tool set. 'oracle' is what a perfect model would call, used by --oracle to check the harness itself. Check keys: tool (any of these was called), first_tool, args {name, match: {arg: regex}}, reply (regex on the final answer), state (end state), hand_on (hand_to_stronger_model was called), no_change (tempo, tracks, mutes and arms as before).",
+ "asks": [
+  {
+   "id": "A1",
+   "group": "A",
+   "ask": "Show me Dm7 on the keys.",
+   "offline": {
+    "tool": [
+     "live_show_on_keys"
+    ],
+    "args": {
+     "name": "live_show_on_keys",
+     "match": {
+      "chord": "^\\s*D\\s*(m|min|-)7\\s*$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_show_on_keys",
+     "arguments": {
+      "chord": "Dm7"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A2",
+   "group": "A",
+   "ask": "What chords are in A minor?",
+   "offline": {
+    "tool": [
+     "theory_key"
+    ],
+    "args": {
+     "name": "theory_key",
+     "match": {
+      "root": "^A$",
+      "scale": "^minor$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "theory_key",
+     "arguments": {
+      "root": "A",
+      "scale": "minor"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A3",
+   "group": "A",
+   "ask": "What notes are in E dorian?",
+   "offline": {
+    "tool": [
+     "theory_key"
+    ],
+    "args": {
+     "name": "theory_key",
+     "match": {
+      "root": "^E$",
+      "scale": "^dorian$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "theory_key",
+     "arguments": {
+      "root": "E",
+      "scale": "dorian"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A4",
+   "group": "A",
+   "ask": "What chord is C E G Bb, in the key of F major?",
+   "offline": {
+    "tool": [
+     "theory_name_chord"
+    ],
+    "reply": "C\\s*7|C dominant"
+   },
+   "oracle": [
+    {
+     "name": "theory_name_chord",
+     "arguments": {
+      "notes": [
+       60,
+       64,
+       67,
+       70
+      ],
+      "root": "F",
+      "scale": "major"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A5",
+   "group": "A",
+   "ask": "How do I play F#m7 on my keyboard?",
+   "offline": {
+    "tool": [
+     "theory_voice_chord",
+     "live_show_on_keys"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "theory_voice_chord",
+     "arguments": {
+      "tones": [
+       "F#",
+       "A",
+       "C#",
+       "E"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "A6",
+   "group": "A",
+   "ask": "Name the chord D F# A, in D major.",
+   "offline": {
+    "tool": [
+     "theory_name_chord"
+    ],
+    "reply": "\\bD\\b"
+   },
+   "oracle": [
+    {
+     "name": "theory_name_chord",
+     "arguments": {
+      "notes": [
+       62,
+       66,
+       69
+      ],
+      "root": "D",
+      "scale": "major"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A7",
+   "group": "A",
+   "ask": "Which chords fit in G major?",
+   "offline": {
+    "tool": [
+     "theory_key"
+    ],
+    "args": {
+     "name": "theory_key",
+     "match": {
+      "root": "^G$",
+      "scale": "^major$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "theory_key",
+     "arguments": {
+      "root": "G",
+      "scale": "major"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A8",
+   "group": "A",
+   "ask": "Light up Cmaj9 for me.",
+   "offline": {
+    "tool": [
+     "live_show_on_keys"
+    ],
+    "args": {
+     "name": "live_show_on_keys",
+     "match": {
+      "chord": "^\\s*C\\s*(maj|M|Δ)9\\s*$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_show_on_keys",
+     "arguments": {
+      "chord": "Cmaj9"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A9",
+   "group": "A",
+   "ask": "What am I playing right now?",
+   "offline": {
+    "tool": [
+     "live_what_am_i_playing"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "live_what_am_i_playing",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "A10",
+   "group": "A",
+   "ask": "Light up G over B on the keys for me.",
+   "offline": {
+    "tool": [
+     "live_show_on_keys"
+    ],
+    "args": {
+     "name": "live_show_on_keys",
+     "match": {
+      "chord": "^\\s*G\\s*/\\s*B\\s*$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_show_on_keys",
+     "arguments": {
+      "chord": "G/B"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A11",
+   "group": "A",
+   "ask": "I'm in C major. What's the chord made of the MIDI notes 62, 65, 69 and 72?",
+   "offline": {
+    "tool": [
+     "theory_name_chord"
+    ],
+    "args": {
+     "name": "theory_name_chord",
+     "match": {
+      "root": "^C$",
+      "scale": "^major$"
+     }
+    },
+    "reply": "D\\s*m(in(or)?)?\\s*7|Dm7|D minor 7"
+   },
+   "oracle": [
+    {
+     "name": "theory_name_chord",
+     "arguments": {
+      "notes": [
+       62,
+       65,
+       69,
+       72
+      ],
+      "root": "C",
+      "scale": "major"
+     }
+    }
+   ]
+  },
+  {
+   "id": "B1",
+   "group": "B",
+   "ask": "What tempo am I at?",
+   "offline": {
+    "tool": [
+     "live_status"
+    ],
+    "reply": "\\b120\\b"
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B2",
+   "group": "B",
+   "ask": "What's on the Bass guitar track?",
+   "offline": {
+    "tool": [
+     "live_get_track",
+     "live_status"
+    ],
+    "reply": "vocal loop"
+   },
+   "oracle": [
+    {
+     "name": "live_get_track",
+     "arguments": {
+      "track": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "B3",
+   "group": "B",
+   "ask": "Check my levels.",
+   "offline": {
+    "tool": [
+     "live_get_levels"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "live_get_levels",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B4",
+   "group": "B",
+   "ask": "Is Live playing right now?",
+   "offline": {
+    "tool": [
+     "live_status"
+    ],
+    "reply": "\\b(no|not|stopped|isn't|is not|false)\\b"
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B5",
+   "group": "B",
+   "ask": "How many tracks do I have?",
+   "offline": {
+    "tool": [
+     "live_status"
+    ],
+    "reply": "\\b(2|two)\\b"
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B6",
+   "group": "B",
+   "ask": "What are my tracks called?",
+   "offline": {
+    "tool": [
+     "live_status"
+    ],
+    "reply": "Keys[\\s\\S]*Bass guitar|Bass guitar[\\s\\S]*Keys"
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B7",
+   "group": "B",
+   "ask": "What clips are on the Arrangement?",
+   "offline": {
+    "tool": [
+     "live_get_arrangement"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "live_get_arrangement",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B8",
+   "group": "B",
+   "ask": "What do you know about my studio?",
+   "offline": {
+    "tool": [
+     "my_studio"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "my_studio",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B9",
+   "group": "B",
+   "ask": "How loud is the Bass guitar track right now?",
+   "offline": {
+    "tool": [
+     "live_get_levels"
+    ],
+    "args": {
+     "name": "live_get_levels",
+     "match": {
+      "track": "^1$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_get_levels",
+     "arguments": {
+      "track": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "B10",
+   "group": "B",
+   "ask": "What instrument is on the Keys track?",
+   "offline": {
+    "tool": [
+     "live_get_track",
+     "live_status"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "live_get_track",
+     "arguments": {
+      "track": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "B11",
+   "group": "B",
+   "ask": "Which keyboard controller do I have in my studio?",
+   "offline": {
+    "tool": [
+     "my_studio"
+    ],
+    "reply": "25|keyboard"
+   },
+   "oracle": [
+    {
+     "name": "my_studio",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "B12",
+   "group": "B",
+   "ask": "Which return tracks are in my set?",
+   "offline": {
+    "tool": [
+     "live_status"
+    ],
+    "reply": "A-Reverb[\\s\\S]*B-Delay|B-Delay[\\s\\S]*A-Reverb"
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "C1",
+   "group": "C",
+   "ask": "Press play.",
+   "offline": {
+    "tool": [
+     "live_transport"
+    ],
+    "args": {
+     "name": "live_transport",
+     "match": {
+      "action": "^play$"
+     }
+    },
+    "state": {
+     "playing": true
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_transport",
+     "arguments": {
+      "action": "play"
+     }
+    }
+   ]
+  },
+  {
+   "id": "C2",
+   "group": "C",
+   "setup": "playing",
+   "ask": "Stop playback.",
+   "offline": {
+    "tool": [
+     "live_transport"
+    ],
+    "args": {
+     "name": "live_transport",
+     "match": {
+      "action": "^(stop|stop_all_clips)$"
+     }
+    },
+    "state": {
+     "playing": false
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_transport",
+     "arguments": {
+      "action": "stop"
+     }
+    }
+   ]
+  },
+  {
+   "id": "C3",
+   "group": "C",
+   "ask": "Play the vocal loop clip.",
+   "offline": {
+    "tool": [
+     "live_fire_clip"
+    ],
+    "args": {
+     "name": "live_fire_clip",
+     "match": {
+      "track": "^1$",
+      "slot": "^7$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_fire_clip",
+     "arguments": {
+      "track": 1,
+      "slot": 7
+     }
+    }
+   ]
+  },
+  {
+   "id": "C4",
+   "group": "C",
+   "ask": "Fire the Intro scene.",
+   "offline": {
+    "tool": [
+     "live_fire_scene"
+    ],
+    "args": {
+     "name": "live_fire_scene",
+     "match": {
+      "index": "^0$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_fire_scene",
+     "arguments": {
+      "index": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "C5",
+   "group": "C",
+   "ask": "Stop the Bass guitar track.",
+   "offline": {
+    "tool": [
+     "live_stop_track"
+    ],
+    "args": {
+     "name": "live_stop_track",
+     "match": {
+      "track": "^1$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_stop_track",
+     "arguments": {
+      "track": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "C6",
+   "group": "C",
+   "ask": "Jump to bar 9.",
+   "offline": {
+    "tool": [
+     "live_transport"
+    ],
+    "args": {
+     "name": "live_transport",
+     "match": {
+      "action": "^jump$",
+      "bar": "^9$"
+     }
+    }
+   },
+   "oracle": [
+    {
+     "name": "live_transport",
+     "arguments": {
+      "action": "jump",
+      "bar": 9
+     }
+    }
+   ]
+  },
+  {
+   "id": "D1",
+   "group": "D",
+   "ask": "Set the tempo to 92.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_set_tempo"
+    ],
+    "state": {
+     "tempo": 92
+    }
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Set the tempo to 92.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D2",
+   "group": "D",
+   "ask": "Mute the Keys track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_mute_track"
+    ],
+    "state": {
+     "muted": [
+      0,
+      true
+     ]
+    }
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Mute the Keys track.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D3",
+   "group": "D",
+   "ask": "Rename the Keys track to Piano.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_rename"
+    ],
+    "state": {
+     "track_name": [
+      0,
+      "Piano"
+     ]
+    }
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Rename the Keys track to Piano.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D4",
+   "group": "D",
+   "ask": "Arm the Keys track so I can record.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_arm_track"
+    ],
+    "state": {
+     "armed": [
+      0,
+      true
+     ]
+    }
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Arm the Keys track so I can record.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D5",
+   "group": "D",
+   "ask": "Make a new MIDI track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_create_midi_track"
+    ],
+    "state": {
+     "track_count": 3
+    }
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Make a new MIDI track.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D6",
+   "group": "D",
+   "ask": "Set the set's scale to D minor.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "tool": [
+     "live_set_scale"
+    ]
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Set the set's scale to D minor.",
+      "reason": "it changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D7",
+   "group": "D",
+   "ask": "Turn the reverb return down a bit.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Turn the reverb return down a bit.",
+      "reason": "it changes the mix"
+     }
+    }
+   ]
+  },
+  {
+   "id": "D8",
+   "group": "D",
+   "ask": "Put a C major chord clip on the Keys track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Put a C major chord clip on the Keys track.",
+      "reason": "it writes a clip"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E1",
+   "group": "E",
+   "ask": "Find me a warm pad.",
+   "offline": {
+    "tool": [
+     "live_find_sound"
+    ],
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "live_find_sound",
+     "arguments": {
+      "description": "a warm pad"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E2",
+   "group": "E",
+   "ask": "Find a warm pad and load my second pick on a new track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "live_find_sound",
+     "arguments": {
+      "description": "a warm pad"
+     }
+    },
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Load the second warm pad pick on a new track.",
+      "reason": "loading changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E3",
+   "group": "E",
+   "ask": "Build a drum kit from my Fluffy Drums folder.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Build a drum kit from my Fluffy Drums folder.",
+      "reason": "building changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E4",
+   "group": "E",
+   "ask": "Set up a vocal chain on the Bass guitar track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Set up a vocal chain on the Bass guitar track.",
+      "reason": "it loads devices"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E5",
+   "group": "E",
+   "ask": "Record 8 bars on the Keys track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Record 8 bars on the Keys track.",
+      "reason": "recording changes the set"
+     }
+    }
+   ]
+  },
+  {
+   "id": "E6",
+   "group": "E",
+   "ask": "Automate a filter sweep over bars 1 to 8.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Automate a filter sweep over bars 1 to 8.",
+      "reason": "it writes automation"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F1",
+   "group": "F",
+   "ask": "Delete my Bass guitar track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Delete my Bass guitar track.",
+      "reason": "deleting is not allowed offline"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F2",
+   "group": "F",
+   "ask": "Master my song so it's loud enough for Spotify.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Master my song so it's loud enough for Spotify.",
+      "reason": "mastering advice and changes"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F3",
+   "group": "F",
+   "ask": "Write me a melody for the Keys track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Write me a melody for the Keys track.",
+      "reason": "writing clips; and the user writes the ideas"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F4",
+   "group": "F",
+   "ask": "Undo the last thing.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Undo the last thing.",
+      "reason": "undo is not available offline"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F5",
+   "group": "F",
+   "ask": "Look at my set and tell me what you see.",
+   "offline": {
+    "tool": [
+     "live_status",
+     "hand_to_stronger_model"
+    ],
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "live_status",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "id": "F6",
+   "group": "F",
+   "ask": "Save the set.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Save the set.",
+      "reason": "saving is not available offline"
+     }
+    }
+   ]
+  },
+  {
+   "id": "F7",
+   "group": "F",
+   "ask": "Sidechain the Keys to the bass guitar track.",
+   "offline": {
+    "hand_on": true,
+    "no_change": true
+   },
+   "all": {
+    "no_change": true
+   },
+   "oracle": [
+    {
+     "name": "hand_to_stronger_model",
+     "arguments": {
+      "request": "Sidechain the Keys to the bass guitar track.",
+      "reason": "routing changes the set"
+     }
+    }
+   ]
+  }
+ ]
+}

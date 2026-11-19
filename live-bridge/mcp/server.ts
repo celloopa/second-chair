@@ -18,6 +18,7 @@ import { liveMenu, liveSave } from "./menu.ts";
 import { startStems, checkStems, cancelStems, stemJobSummary } from "./separate.ts";
 import { readPicker, fillPicker, cancelPicker, checkFile, saveSetAs } from "./filedialog.ts";
 import { readExport, exportAudio, cancelExport } from "./export.ts";
+import { annotations, listed, refusal, profile, handOn, HAND_ON_DESCRIPTION, HAND_ON_SCHEMA, OFFLINE_GUIDE, KIND, SHORT, shortSchema } from "./profiles.ts";
 import { findAudioFile } from "./samplefiles.ts";
 import { readWav, findOnsets } from "./onsets.ts";
 import { analyze, reading, type Analysis } from "./loudness.ts";
@@ -27,7 +28,7 @@ import { readProfile, profileName, personalize, writeProfile, profilePath, QUEST
 import { rankSounds, explain, loadTags, displayName, type Candidate, type Pick } from "./sounds.ts";
 import { nameChord, chordShape, parseChordSymbol, keysFor, soundingAt, soundingChord, chordTrail, shapeLabel, scaleFromLive, type NoteEvent } from "./chords.ts";
 
-const VERSION = "0.15.0";
+const VERSION = "0.16.0";
 const NEEDS_BRIDGE = "0.11.0"; // the oldest Remote Script these tools work with; raise it when the Remote Script changes
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SECOND_CHAIR_PORT || 9885);
@@ -413,6 +414,19 @@ const clipRef = (a: Record<string, unknown>) => {
 };
 const GRIDS = ["1/4", "1/8", "1/8t", "1/8+1/8t", "1/16", "1/16t", "1/16+1/16t", "1/32"];
 
+/** Notes as given: MIDI numbers stay; note names (C, E, G, Bb) are stacked upward from middle C (60), each above the last. */
+function notesFrom(xs: unknown[]): number[] {
+  if (!Array.isArray(xs) || !xs.length) throw new Error("Give notes: note names like C, E, G, Bb, or MIDI note numbers.");
+  const out: number[] = [];
+  for (const x of xs) {
+    if (typeof x === "number" || /^\d+$/.test(String(x).trim())) { out.push(Number(x)); continue; }
+    const pc = rootPc(x);
+    if (!out.length) { out.push(60 + pc); continue; }
+    const prev = out[out.length - 1];
+    out.push(prev + ((((pc - prev) % 12) + 12) % 12 || 12));
+  }
+  return out;
+}
 const tools: Tool[] = [
   // --- Live: read ---
   { name: "live_status", description: "Check the connection and read the Live set: which set is open (set: name, unsaved, untitled, and its file path; if it has a warning, tell the user and ask before changing anything), whether Live is waiting on a message box (dialog: open, its text and how many buttons; tell the user and let them answer it in Live), tempo, time signature, playing state, song scale, every track (index, name, MIDI/audio, armed, monitor, devices, group), the return tracks and Main (returns and main: they have track numbers too, right after the regular tracks, so the device, knob, level and automation tools work on them), scenes and the selected track. Call this first.",
@@ -967,7 +981,9 @@ const tools: Tool[] = [
   { name: "studio_guide", description: "The user's studio setup and how to help in Live: how to talk to the user, which tool fits which request, the safety rules, the gear and folder facts, fixes for common problems, and HeyClicky notes. Read it at the start of a music session if you don't have the second-chair skill. section narrows it, e.g. \"fixes\" or \"which tool\". Works without Live.",
     inputSchema: obj({ section: { type: "string", description: "Words from a section title: \"how to work\", \"start\", \"playbooks\", \"which tool\", \"safety\", \"facts\", \"fixes\", \"heyclicky\", \"working on the tools\", \"mac\", \"my studio\"" },
       playbook: { type: "string", enum: PLAYBOOKS, description: "Step-by-step best practices for one kind of job; read it before the first write of that kind" } }),
-    run: (a) => ({ mcpContent: [{ type: "text", text: personalize(studioGuide(a.section ? String(a.section) : undefined, a.playbook ? String(a.playbook) : undefined)) }] }) },
+    run: (a) => ({ mcpContent: [{ type: "text", text: personalize(profile() === "offline" ? OFFLINE_GUIDE : studioGuide(a.section ? String(a.section) : undefined, a.playbook ? String(a.playbook) : undefined)) }] }) },
+  // --- offline mode (profiles.ts): only listed with SECOND_CHAIR_TOOLS=offline ---
+  { name: "hand_to_stronger_model", description: HAND_ON_DESCRIPTION, inputSchema: HAND_ON_SCHEMA, run: (a) => handOn(a) },
   { name: "my_studio", description: "The user's studio profile: their name, how they like to be taught, their controller, interface, instruments, sample folders and plugins, and fixes that are about their machine. Read it once at the start of a session (no arguments). If there is none yet, this returns the questions to ask: ask a few at a time, in conversation, and don't guess. Save with text (the whole profile as Markdown, keeping the '- **Name:** ...' line): only what the user told you, and only when they agree to save it. Saving keeps the previous version next to it. Works without Live.",
     inputSchema: obj({ text: { type: "string", description: "The whole profile as Markdown, to save. Leave out to read" } }),
     run: (a) => {
@@ -1105,9 +1121,9 @@ const tools: Tool[] = [
       };
     } },
   { name: "theory_name_chord", description: "Name the chord in a set of MIDI notes and read it against a key: roman numeral, in the key or borrowed, and what usually comes next.",
-    inputSchema: obj({ notes: { type: "array", items: { type: "integer" }, description: "MIDI note numbers" },
+    inputSchema: obj({ notes: { type: "array", items: { type: ["string", "integer"] }, description: "The notes, low to high: note names (C, E, G, Bb) or MIDI note numbers" },
       root: { type: ["string", "integer"], description: "Key root" }, scale: { type: "string", enum: SCALE_IDS } }, ["notes", "root", "scale"]),
-    run: (a) => nameChord(a.notes as number[], rootPc(a.root), scaleId(a.scale)) },
+    run: (a) => nameChord(notesFrom(a.notes as unknown[]), rootPc(a.root), scaleId(a.scale)) },
   { name: "theory_voice_chord", description: "Lay a chord out for a 25-key keyboard (root low, tones stacked above) and give MIDI notes to write into a clip, with the root doubled an octave down.",
     inputSchema: obj({ tones: { type: "array", items: { type: ["string", "integer"] }, description: "Chord tones, root first, as note names (E, G, B, D, F#) or pitch classes" } }, ["tones"]),
     run: (a) => {
@@ -1119,6 +1135,7 @@ const tools: Tool[] = [
 // ---------- MCP (JSON-RPC 2.0): stdio by default, or HTTP on this computer only with --http ----------
 
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
+for (const t of tools) if (!KIND[t.name]) process.stderr.write(`second-chair: tool ${t.name} has no kind in profiles.ts; it is marked risky\n`);
 const byName = new Map(tools.map((t) => [t.name, t]));
 type Send = (msg: unknown) => void;
 
@@ -1140,11 +1157,18 @@ async function handle(msg: any, send: Send) {
       const who = profileName();
       const named = (x: unknown): unknown => typeof x === "string" ? personalize(x, who) : Array.isArray(x) ? x.map(named)
         : x && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k === "description" ? named(v) : typeof v === "object" ? named(v) : v])) : x;
-      return send({ jsonrpc: "2.0", id, result: { tools: tools.map(({ name, description, inputSchema }) => named({ name, description, inputSchema })) } });
+      // Offline mode lists its tools with one-line descriptions and short argument notes (profiles.ts SHORT).
+      const off = profile() === "offline";
+      return send({ jsonrpc: "2.0", id, result: { tools: tools.filter((t) => listed(t.name)).map(({ name, description, inputSchema }) => ({
+        ...(named({ name, description: off ? (SHORT[name] ?? description) : description, inputSchema: off ? shortSchema(inputSchema) : inputSchema }) as object),
+        annotations: annotations(name) })) } });
     }
     if (method === "tools/call") {
       const tool = byName.get(params?.name);
       if (!tool) return send({ jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown tool: ${params?.name}` } });
+      // Offline mode (profiles.ts): tools outside the profile, unknown or missing arguments, and recording are refused here.
+      const why = refusal(tool.name, params?.arguments ?? {}, tool.inputSchema as { properties?: Record<string, unknown>; required?: string[] });
+      if (why) return send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: personalize(why) }], isError: true } });
       try {
         const out = await tool.run(params?.arguments ?? {});
         // a tool can hand back MCP content directly (images); everything else goes out as JSON text
