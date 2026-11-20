@@ -6,7 +6,7 @@ Second Chair puts your AI agent inside your Live set. You ask in plain words. It
 
 In an orchestra, the second chair sits beside the lead player and backs them up. You lead.
 
-**Private beta, version 0.11.0. Please don't share it yet.**
+**Beta, version 0.16.1.** It works on the author's Windows PC and Mac. Expect rough edges.
 
 ## What you can ask
 
@@ -34,7 +34,7 @@ The full list, by job, is in [docs/what-you-can-do.md](docs/what-you-can-do.md).
 
 Paste this to an agent that can run commands (Claude Code, the Code tab of the Claude app, or Codex):
 
-> Set up Second Chair for me. Clone https://github.com/celloopa/music-studio-beta into a folder that can stay, then read ONBOARDING.md in it and follow it with me.
+> Set up Second Chair for me. Clone https://github.com/celloopa/second-chair into a folder that can stay, then read ONBOARDING.md in it and follow it with me.
 
 Your agent then does five things, and asks before it changes anything:
 
@@ -137,7 +137,7 @@ To see what it would do without changing anything, add `--dry-run`.
 
 1. Quit Live fully if it's open, and open it again. Live only reads the script when it starts.
 2. Go to **Settings > Link, Tempo & MIDI**. Under **Control Surface**, pick **SecondChair** in an empty row. Leave its Input and Output on **None**.
-3. The bar at the bottom of Live says **"SecondChair 0.10.2 ready"**.
+3. The bar at the bottom of Live says **"SecondChair 0.11.0 ready"**.
 
 **B. In Claude**
 
@@ -245,7 +245,7 @@ Run the check first (above). Then:
 | What you see | What to do |
 |---|---|
 | SecondChair is missing from Live's Control Surface list | Live was open during the install, or the script went to a different User Library. Quit Live fully and reopen. Check Settings > Library for the User Library's location, and run the installer with `--user-library "<that folder>"`. |
-| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.10.2 ready". |
+| Claude says it can't reach Live | Is Live open? Is SecondChair picked in a Control Surface row? The bar at the bottom of Live should have said "SecondChair 0.11.0 ready". |
 | Claude says "unknown action" or warns about versions | Live is still running an older script. Quit Live fully and open it again. |
 | Claude says "unauthorized" or the token is missing | Run the installer again, then restart Live. |
 | Claude has no `second-chair` tools | Quit Claude fully (tray icon too on Windows) and reopen. Run the check. If needed, add it by hand (above). |
@@ -270,3 +270,7 @@ Your agent shows you the text before it posts anything. It helps to include the 
 - **Other AI apps, proven.** It's built and tested with Claude. The tools speak MCP, so Codex and other MCP apps should work, but we haven't tested any for this beta.
 
 Second Chair is an independent project. Ableton doesn't make or endorse it.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

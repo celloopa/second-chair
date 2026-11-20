@@ -28,9 +28,9 @@ There are two ways to help:
    - The tool you called, its arguments, and the exact error or wrong result. Copy it; don't paraphrase.
    - What should have happened.
    - Whether it happens again, and the steps, on a new empty set if you can.
-2. **Look for it first:** `gh issue list --repo celloopa/music-studio-beta --state all --search "<a few words>"`. If it's already there, add a comment with your facts instead of a new issue.
-3. **Post it:** `gh issue create --repo celloopa/music-studio-beta --title "<tool>: <what goes wrong>" --body-file <file>`. Shape the body like `.github/ISSUE_TEMPLATE/problem.md`.
-   - Without `gh`, give the user the title and body to paste at https://github.com/celloopa/music-studio-beta/issues/new.
+2. **Look for it first:** `gh issue list --repo celloopa/second-chair --state all --search "<a few words>"`. If it's already there, add a comment with your facts instead of a new issue.
+3. **Post it:** `gh issue create --repo celloopa/second-chair --title "<tool>: <what goes wrong>" --body-file <file>`. Shape the body like `.github/ISSUE_TEMPLATE/problem.md`.
+   - Without `gh`, give the user the title and body to paste at https://github.com/celloopa/second-chair/issues/new.
 4. **For an idea or a request,** start the title with `Idea:`. Say what the user was trying to do and what they reached for that wasn't there. Shape the body like `.github/ISSUE_TEMPLATE/idea.md`.
 
 ## Send a fix
@@ -38,7 +38,7 @@ There are two ways to help:
 Small, focused fixes are best: one problem per pull request.
 
 1. **Get the code:**
-   - Run `gh repo fork celloopa/music-studio-beta --clone`, then make a branch: `git switch -c fix/<short-name>`.
+   - Run `gh repo fork celloopa/second-chair --clone`, then make a branch: `git switch -c fix/<short-name>`.
    - If the user already has write access, a branch on this repo is fine instead of a fork.
 2. **Know where things are:**
 
@@ -65,7 +65,7 @@ Small, focused fixes are best: one problem per pull request.
    - If Live is open, set `SECOND_CHAIR_PORT=19885` in both terminals so the fake doesn't clash with it.
    - If the fake can show the bug, add a check for it to `mcp_client.ts` (and to `fake_live.py` if the stand-in needs to act more like real Live).
    - **If you changed the Live script and the user agrees,** also try it in real Live on a new empty set, then take it back with `live_revert`. A change to the script needs a full Live restart to load.
-5. **Open the pull request:** `gh pr create --repo celloopa/music-studio-beta --base main`. Fill in `.github/pull_request_template.md`:
+5. **Open the pull request:** `gh pr create --repo celloopa/second-chair --base main`. Fill in `.github/pull_request_template.md`:
    - what was wrong, with `Fixes #<issue>` if there is one
    - what you changed
    - how you tested it: fake or real Live, OS, Live version

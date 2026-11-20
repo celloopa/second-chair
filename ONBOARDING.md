@@ -24,7 +24,7 @@ Follow these as written.
 
 1. If you're already inside this repo, skip to phase 1.
 2. Ask where it should live. It must be a folder that stays put, such as `Documents/second-chair` or `~/second-chair`, because the AI app starts the tools from it.
-3. Clone it there: `git clone https://github.com/celloopa/music-studio-beta`. The repo is private, so this needs the user's GitHub sign-in (`gh auth login` if they have the GitHub CLI). If cloning fails, tell them how to download it as a ZIP from the repo page.
+3. Clone it there: `git clone https://github.com/celloopa/second-chair`. If cloning fails, tell them how to download it as a ZIP from the repo page.
 
 ## Phase 1: look before you touch
 
